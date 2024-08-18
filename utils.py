@@ -5,7 +5,7 @@ from datetime import datetime as dt
 from decimal import Decimal
 
 expand = lambda x: json.dumps(x, indent=2)
-ts_now = lambda x: dt.now().timestamp()
+ts_now = lambda: dt.now().timestamp()
 pntodt = lambda x: dt.strptime(x, "%Y%d%m_%H%M")
 int_dt = lambda x: {k: (int(v) if isinstance(v, Decimal) else v) for k, v in x.items()}
 

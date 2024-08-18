@@ -16,7 +16,7 @@ def main():
 
 @main.command("info")
 def get_account_info():
-    log.info("get_account_info")
+    log.info("get_account_info 2")
 
 
 if __name__ == "__main__":

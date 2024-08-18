@@ -4,7 +4,7 @@ import os
 
 from dotenv import load_dotenv
 
-log = logging.getLogger("Accountant.LocalStorage")
+log = logging.getLogger("LocalStorage")
 
 
 class LocalStorage:
@@ -23,7 +23,7 @@ class LocalStorage:
             # inst.devices_path = os.getenv('JSON_DEVICES')
 
             inst.accounts = inst.get_accounts()
-            log.debug(f"Loaded {inst.number_of_saved_accounts} accounts from disk")
+            log.info(f"Loaded {inst.number_of_saved_accounts} accounts from disk")
             cls.INSTANCE[env] = inst
         return cls.INSTANCE[env]
 
@@ -44,7 +44,7 @@ class LocalStorage:
         try:
             with open(self.accounts_path, "w", encoding="utf-8") as file:
                 json.dump(self.accounts, file, indent=2)
-                log.debug(f"Saved {self.number_of_saved_accounts} accounts to disk")
+                log.info(f"Saved {self.number_of_saved_accounts} accounts to disk")
         except OSError as e:
             log.error(f"Exception when trying to save a file '{self.accounts_path}'")
             log.exception(e)

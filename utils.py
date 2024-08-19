@@ -34,10 +34,14 @@ def dec_to_int(item):
     # log.error(f"dec_to_int - called with incorrect argument: {type(item)}")
 
 
-def is_email(string):
+def is_email(string: str) -> bool:
     regex_email = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
     return bool(re.fullmatch(regex_email, string, flags=re.I))
 
+
+def is_usrId(string: str) -> bool:
+    regex_userid = r"(DEV|QA)_\d\d\d_\d+"
+    return bool(re.fullmatch(regex_userid, string, flags=re.I))
 
 def parse_pd(acc):
     m_pn = json.loads(acc['mobilePushData'])

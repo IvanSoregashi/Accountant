@@ -1,3 +1,4 @@
 /log/*
 /config/.*
 /data/*
+__pycache__/*

@@ -3,7 +3,7 @@ import logging.config
 
 from click_shell import shell
 
-from utils import expand
+from utils import expand, is_email, is_usrId
 
 from Account import Account
 from DynamoDB import DynamoDB
@@ -12,7 +12,7 @@ from LocalStorage import LocalStorage
 
 __author__ = "Ivan Shiriaev"
 __maintainer__ = "Ivan Shiriaev"
-__version__ = 0.11
+__version__ = 0.12
 
 logging.config.fileConfig('config/log.conf')
 log = logging.getLogger("Accountant")
@@ -57,13 +57,40 @@ def show_context(ctx):
 
 def find_by_email(ctx, param, value):
     acc = Account.find_by_email(value)
-    click.echo(expand(acc))
-@main.command("acc")
+    ctx.obj['account'] = acc
+    log.info(f"Account selected: {repr(acc)}")
+
+@main.command("account")
 @click.option("-m", "--email", callback=find_by_email)
 @click.pass_context
-def acc(ctx, email):
+def account(ctx, email):
     pass
+@main.command("acc")
+#@click.option("--data", type=str, prompt="Enter email or userId", required=True)
+@click.argument("data", type=str, required=True)
+@click.pass_context
+def acc(ctx, data):
+    if is_usrId(data):
+        log.info(f"Searching by userId {data}")
+        acc = Account[data]
+    else:
+        log.info(f"Searching by{"" if is_email(data) else " partial"} email {data}")
+        acc = Account.find_by_email(data)
+    if not acc:
+        log.warning(f"Account ({data}) not found")
+        return
+    ctx.obj['account'] = acc
+    log.info(f"Account selected: {repr(acc)}")
 
+
+@click.command("create")
+@click.option("-m", "--email", prompt=True, required=True)
+@click.option("-u", "--ux", prompt=True, required=True)
+@click.option("-a", "--api", required=False)
+@click.option("-c", "--country", prompt=True, required=True, default="US")
+@click.option("-l", "--language", prompt=True, required=True, default="en-us")
+@click.pass_context
+def create_account(ctx, email, ux, api, country, language): pass
 
 if __name__ == "__main__":
     main()

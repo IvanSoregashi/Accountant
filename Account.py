@@ -25,7 +25,7 @@ class Account(UserDict):
     def find_by_email(cls, email):
         for acc in cls.__local.accounts.values():
             if email in acc.get("email"):
-                return acc
+                return Account(acc)
     # TODO request info from database
 
     @classmethod

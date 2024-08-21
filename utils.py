@@ -1,9 +1,11 @@
 import json
 import re
 
+from obscura import *
 from datetime import datetime as dt
 from decimal import Decimal
 
+envron = lambda x: env_qa if x.startswith('QA-') else env_dev
 expand = lambda x: json.dumps(x, indent=2)
 ts_now = lambda: dt.now().timestamp()
 pntodt = lambda x: dt.strptime(x, "%Y%d%m_%H%M")
@@ -40,7 +42,7 @@ def is_email(string: str) -> bool:
 
 
 def is_usrId(string: str) -> bool:
-    regex_userid = r"(DEV|QA)_\d\d\d_\d+"
+    regex_userid = user_regex
     return bool(re.fullmatch(regex_userid, string, flags=re.I))
 
 def parse_pd(acc):

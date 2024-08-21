@@ -26,7 +26,10 @@ class Account(UserDict):
         for acc in cls.__local.accounts.values():
             if email in acc.get("email"):
                 return Account(acc)
-    # TODO request info from database
+
+    @classmethod
+    def find_by_usrid(cls, userid):
+        return cls.__saved_accounts.get(userid, None)
 
     @classmethod
     def set_up(cls, aws, local):
@@ -60,6 +63,11 @@ class Account(UserDict):
         #predicate = (lambda x: with_field in x) if not with_field else None
         #return [acc.data for acc in filter(predicate, cls.__saved_accounts.values())]
         return list(cls.__local.accounts.values())
+
+    @classmethod
+    def list_strings(cls):
+        return "\n".join(map(repr, cls.__saved_accounts.values()))
+
 
     @classmethod
     def create(cls):

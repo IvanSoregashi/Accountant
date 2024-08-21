@@ -3,7 +3,7 @@ import logging.config
 
 from click_shell import shell
 
-from utils import expand, is_email, is_usrId, envron
+from utils import expand, is_email, is_usrId, envron, confirm
 from obscura import *
 
 from Account import Account
@@ -79,7 +79,11 @@ def acc(ctx, data):
         acc = Account.find_in_local(data)
     if not acc:
         log.warning(f"Account ({data}) not found")
-        return
+        log.info("Load account from DynamoDB?")
+        if confirm():
+            acc = Account.load_from_dynamo(data)
+        else:
+            return
     ctx.obj['account'] = acc
     log.info(f"Account selected: {repr(acc)}")
 

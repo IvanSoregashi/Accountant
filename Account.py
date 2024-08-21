@@ -1,7 +1,7 @@
 import logging
 from collections import UserDict
 
-from utils import dec_to_int, is_email, parse_pd, ts_now
+from utils import dec_to_int, is_email, parse_pd, ts_now, is_usrId
 
 log = logging.getLogger("Account")
 
@@ -10,16 +10,51 @@ class Account(UserDict):
     __saved_accounts = dict()
 
     @classmethod
-    def from_email(cls, email):
-        items = cls.__aws.query_user_account_by_email(email)
-        if not items:
-            log.error(f"Nothing was found in AWS({cls.__aws.env}) by email {email}")
-            return
-        if len(items) > 1:
-            userIds = [x['userId'] for x in items]
-            log.warning(f"More than one account found for {email}, taking the first from userIds: {userIds}")
-        item = items[0]
+    def load_from_dynamo(cls, data):
+        item = Account.find_in_dynamo(data)
         return Account(item)
+
+    @classmethod
+    def find_in_dynamo(cls, data):
+        log.debug(f"Searching for {data} in the DynamoDB.")
+        if is_usrId(data):
+            data_type = "UserId"
+            item = cls.__aws.get_user_account(data)
+        elif is_email(data):
+            data_type = "email"
+            items = cls.__aws.query_user_account_by_email(data)
+            if len(items) > 1:
+                userIds = [x['userId'] for x in items]
+                log.warning(f"More than one account found for {data_type} {data}, taking the first from userIds: {userIds}")
+            item = items[0]
+        else:
+            log.error(f"Cannot use {data} to query DynamoDB")
+            return
+        if not item:
+            log.error(f"Nothing was found in AWS({cls.__aws.env}) by {data_type} {data}.")
+        return item
+
+    @classmethod
+    def find_in_local(cls, data):
+        log.debug(f"Searching for {data} locally.")
+        acc = None
+        if is_usrId(data):
+            data_type = "UserId"
+            acc = cls.__saved_accounts.get(data, None)
+        elif is_email(data):
+            data_type = "email"
+            for item in cls.__saved_accounts.values():
+                if data == item.get("email"):
+                    acc = item
+                    break
+        else:
+            data_type = "partial email"
+            for item in cls.__saved_accounts.values():
+                if data in item.get("email"):
+                    acc = item
+                    break
+        if not acc: log.warning(f"Nothing was found locally with {data_type} {data}.")
+        return acc
 
     @classmethod
     def find_by_email(cls, email):
@@ -34,29 +69,9 @@ class Account(UserDict):
     @classmethod
     def set_up(cls, aws, local):
         cls.__aws = aws
-        try:
-            aws.env
-        except Exception as e:
-            log.critical(f"AWS Class passed without initialization")
-            log.exception(e)
-            raise ValueError("AWS Class passed without initialization")
         cls.__local = local
-        try:
-            local.accounts
-        except Exception as e:
-            log.critical(f"Local Class passed without initialization")
-            log.exception(e)
-            raise ValueError("Local Class passed without initialization")
         for acc, item in cls.__local.accounts.items():
             cls.__saved_accounts[acc] = Account(item)
-        # TODO I probably do not need that many checks now, or maybe, this method altogether
-
-    @classmethod
-    def is_saved(cls, string):
-        if is_email(string):
-            return string in [i['email'] for i in cls.__local.accounts.values()]
-        else:
-            return string in cls.__local.accounts
 
     @classmethod
     def list_dicts(cls, with_field=None):
@@ -67,7 +82,6 @@ class Account(UserDict):
     @classmethod
     def list_strings(cls):
         return "\n".join(map(repr, cls.__saved_accounts.values()))
-
 
     @classmethod
     def create(cls):
@@ -102,3 +116,7 @@ class Account(UserDict):
     def unmigrate(self):
         # TODO
         pass
+
+
+class AccountGroup(UserDict):
+    pass

@@ -37,6 +37,7 @@ def dev(ctx): env_setup(ctx, env_dev)
 
 
 def env_setup(ctx, env):
+    if 'local' in ctx.obj: ctx.obj['local'].save_accounts()
     log.info(f"Setting up {env} environment.")
     ctx.obj['environment'] = env
     local = LocalStorage(env)
@@ -44,14 +45,13 @@ def env_setup(ctx, env):
     ctx.obj['local'] = local
     ctx.obj['db'] = aws
     Account.set_up(aws, local)
-    #ctx.obj['account'] = Account.
 
 
 @main.command("show")
 @click.pass_context
 def show_context(ctx):
     log.info(ctx.obj)
-
+    ctx.obj['local'].save_accounts()
 
 @main.command("list")
 def list_accounts():
@@ -70,13 +70,13 @@ def acc(ctx, data):
                 env_setup(ctx, env_qa)
             else:
                 env_setup(ctx, env_dev)
-        acc = Account.find_by_usrid(data)
+        acc = Account.find_in_local(data)
     else:
         if "environment" not in ctx.obj:
             log.error(f"Environment is not set up! Aborting operation.")
             return
         log.info(f"Searching by{"" if is_email(data) else " partial"} email {data}")
-        acc = Account.find_by_email(data)
+        acc = Account.find_in_local(data)
     if not acc:
         log.warning(f"Account ({data}) not found")
         return
@@ -91,7 +91,8 @@ def acc(ctx, data):
 @click.option("-c", "--country", prompt=True, required=True, default="US")
 @click.option("-l", "--language", prompt=True, required=True, default="en-us")
 @click.pass_context
-def create_account(ctx, email, ux, api, country, language): pass
+def create_account(ctx, email, ux, api, country, language):
+    pass
 
 
 @click.command("unmigrate")

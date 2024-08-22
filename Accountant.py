@@ -6,7 +6,7 @@ from click_shell import shell
 from utils import expand, is_email, is_usrId, envron, confirm
 from obscura import *
 
-from Account import Account
+from Account import Account_Legacy
 from DynamoDB import DynamoDB
 from LocalStorage import LocalStorage
 
@@ -44,7 +44,7 @@ def env_setup(ctx, env):
     aws = DynamoDB(env)
     ctx.obj['local'] = local
     ctx.obj['db'] = aws
-    Account.set_up(aws, local)
+    Account_Legacy.set_up(aws, local)
 
 
 @main.command("show")
@@ -55,7 +55,7 @@ def show_context(ctx):
 
 @main.command("list")
 def list_accounts():
-    click.echo(Account.list_strings())
+    click.echo(Account_Legacy.list_strings())
 
 @main.command("acc")
 #@click.option("--data", type=str, prompt="Enter email or userId", required=True)
@@ -70,18 +70,18 @@ def acc(ctx, data):
                 env_setup(ctx, env_qa)
             else:
                 env_setup(ctx, env_dev)
-        acc = Account.find_in_local(data)
+        acc = Account_Legacy.find_in_local(data)
     else:
         if "environment" not in ctx.obj:
             log.error(f"Environment is not set up! Aborting operation.")
             return
         log.info(f"Searching by{"" if is_email(data) else " partial"} email {data}")
-        acc = Account.find_in_local(data)
+        acc = Account_Legacy.find_in_local(data)
     if not acc:
         log.warning(f"Account ({data}) not found")
         log.info("Load account from DynamoDB?")
         if confirm():
-            acc = Account.load_from_dynamo(data)
+            acc = Account_Legacy.load_from_dynamo(data)
         else:
             return
     ctx.obj['account'] = acc

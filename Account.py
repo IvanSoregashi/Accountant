@@ -121,13 +121,12 @@ class Account(UserDict):
     def __new__(cls, item):
         if not isinstance(item, dict):
             log.critical(f"Account is not initialized with proper item: {item}")
-            raise ValueError(f"Account is not initialized with proper item: {item}")
-        if not isinstance(..., cls):
-            inst = super().__new__(cls)
-            inst.data = item
-            inst.data.setdefault("pulled", ts_now())
-            if "mobilePushData" in item:
-                inst.data["LastMobile"] = parse_pd(item)
+            raise TypeError(f"Account is not initialized with proper item: {item}")
+        inst = super().__new__(cls)
+        inst.data = item
+        inst.data.setdefault("pulled", ts_now())
+        if "mobilePushData" in item:
+            inst.data["LastMobile"] = parse_pd(item)
         return inst
 
     def __repr__(self):
@@ -184,6 +183,9 @@ class AccountGroup(UserDict):
         for acc in self.data:
             if acc['email'] == email:
                 return acc['userId']
+
+    def compile_email_index(self):
+        self.email_data = {acc['email']: acc for acc in self.data.values()}
 
     @property
     def serializable_dict(cls):

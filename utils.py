@@ -52,6 +52,14 @@ def is_email(string: str) -> bool:
     return bool(re.fullmatch(regex_email, string, flags=re.I))
 
 
+def ensure_email(string: str) -> str:
+    regex_usrnm = r"^[a-zA-Z0-9_.+-]+$"
+    if is_email(string): return string
+    if re.fullmatch(regex_usrnm, string, flags=re.I):
+        return f"{string}@yopmail.com"
+    return ""
+
+
 def is_usrId(string: str) -> bool:
     regex_userid = user_regex
     return bool(re.fullmatch(regex_userid, string, flags=re.I))
@@ -70,3 +78,9 @@ def confirm():
         answer = input("Confirm this course of action: (yes/no) ")
         if answer in ("", "yes", "Yes", "YES"): return True
         if answer in ("no", "No", "NO"): return False
+
+def confirm_env():
+    while True:
+        answer = input("Confirm the environment: (qa/dev) ")
+        if answer == "qa": return env_qa
+        if answer == "dev": return env_dev

@@ -6,9 +6,9 @@ from click_shell import shell
 from utils import expand, is_email, is_usrId, envron, confirm
 from obscura import *
 
-from Account import Account_Legacy
-from DynamoDB import DynamoDB
-from LocalStorage import LocalStorage
+from Account import Account_Legacy, AccountGroup, Account
+#from DynamoDB import DynamoDB
+#from LocalStorage import LocalStorage
 
 __author__ = "Ivan Shiriaev"
 __maintainer__ = "Ivan Shiriaev"
@@ -52,6 +52,12 @@ def env_setup(ctx, env):
 def show_context(ctx):
     log.info(ctx.obj)
     ctx.obj['local'].save_accounts()
+
+@main.command("reset")
+@click.pass_context
+def reset_context(ctx):
+    log.debug("resetting context without saving")
+    ctx.obj.clear()
 
 @main.command("list")
 def list_accounts():

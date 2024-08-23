@@ -95,4 +95,5 @@ class DynamoDB:
             log.error(f"Account with email: {email} was not found in AWS({self.env})")
             return
         #item = items[0]
+        # TODO evaluate the need for dec_to_int here
         return dec_to_int(items)

@@ -1,5 +1,6 @@
 from collections import UserDict
 from utils import *
+from DynamoDB import DynamoDB
 
 log = logging.getLogger("Account")
 
@@ -118,6 +119,34 @@ class Account_Legacy(UserDict):
 
 
 class Account(UserDict):
+    @classmethod
+    def from_email(cls, data, env=None):
+        log.debug(f"Searching for {data} in the DynamoDB.")
+        if not is_email(data):
+            log.debug(f"{data} does not look like email to me, WTF? Let's see what I can do")
+            data = ensure_email(data)
+            if not data:
+                log.error("There was nothing I could do. Operation aborted.")
+                return
+        if not env: env = confirm_env()
+        items = DynamoDB(env).query_user_account_by_email(data)
+        if len(items) > 1:
+            userIds = [x['userId'] for x in items]
+            log.warning(f"More than one account found for {data}, taking the first from userIds: {userIds}")
+        item = items[0]
+        # TODO should all of the above evaluations really be in this class???
+        return item
+
+    @classmethod
+    def from_userid(cls, data):
+        log.debug(f"Searching for {data} in the DynamoDB.")
+        if not is_usrId(data):
+            log.error(f"{data} id not valid dev/qa userid. Operation aborted.")
+            return
+        env = envron(data)
+        item = DynamoDB(env).get_user_account(data)
+        return item
+
     def __new__(cls, item):
         if not isinstance(item, dict):
             log.critical(f"Account is not initialized with proper item: {item}")
@@ -140,6 +169,7 @@ class AccountGroup(UserDict):
     def get_accounts(cls):
         try:
             with open(accounts_json_file, "r", encoding="utf-8") as file:
+                log.debug("Collecting data from disk")
                 return json.load(file)
         except OSError as e:
             log.error(f"Exception when trying to load a file '{accounts_json_file}'")
@@ -162,27 +192,46 @@ class AccountGroup(UserDict):
             raise OSError(f"Exception when trying to save a file '{accounts_json_file}'")
 
     def __new__(cls, filter=None):
+        log.debug("Cooking a new Account Group")
         if not cls.master:
+            log.debug("No master group found, creating new master group")
             accounts = AccountGroup.get_accounts()
             inst = super().__new__(cls)
             inst.data = {k: Account(v) for k, v in accounts.items()}
+            inst.email_data = {acc['email']: acc for acc in inst.data.values()}
             cls.master = inst
         if not filter:
+            log.debug("Returning the Master Group")
             return cls.master
         else:
+            log.debug("Filters were not yet implemented")
             return NotImplemented
 
     def __missing__(self, key):
+        log.debug(f"Key {key} was not found in UserID index")
         if is_email(key):
-            userid = self.userid_from_email(key)
-            return self.data[userid]
+            log.debug(f"Checking email-index for {key}")
+            return self.email_data[key]
         else:
             raise KeyError("Not Found")
 
-    def userid_from_email(self, email):
-        for acc in self.data:
-            if acc['email'] == email:
-                return acc['userId']
+    def find(self, data):
+        log.debug(f"Searching for {data} locally.")
+        acc = None
+        if is_usrId(data):
+            data_type = "UserId"
+            acc = self.data.get(data, None)
+        elif is_email(data):
+            data_type = "email"
+            acc = self.email_data.get(data, None)
+        else:
+            data_type = "partial email"
+            for item in self.email_data:
+                if data in item:
+                    acc = self.email_data.get(item, None)
+                    break
+        if not acc: log.warning(f"Nothing was found locally with {data_type} {data}.")
+        return acc
 
     def compile_email_index(self):
         self.email_data = {acc['email']: acc for acc in self.data.values()}
@@ -190,3 +239,11 @@ class AccountGroup(UserDict):
     @property
     def serializable_dict(cls):
         return {k: dec_to_int(v.data) for k, v in cls.master.data.items()}
+
+    @staticmethod
+    def query_with_email(data):
+        pass
+
+    @staticmethod
+    def query_with_usrid(data):
+        pass

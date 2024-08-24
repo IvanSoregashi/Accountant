@@ -3,8 +3,7 @@ import logging.config
 
 from click_shell import shell
 
-from utils import expand, is_email, is_usrId, envron, confirm
-from obscura import *
+from utils import *
 
 from Account import Account_Legacy, AccountGroup, Account
 #from DynamoDB import DynamoDB
@@ -12,7 +11,7 @@ from Account import Account_Legacy, AccountGroup, Account
 
 __author__ = "Ivan Shiriaev"
 __maintainer__ = "Ivan Shiriaev"
-__version__ = 0.16
+__version__ = 0.18
 
 logging.config.fileConfig("config/log.conf")
 log = logging.getLogger("Accountant")
@@ -37,33 +36,31 @@ def dev(ctx): env_setup(ctx, env_dev)
 
 
 def env_setup(ctx, env):
-    if 'local' in ctx.obj: ctx.obj['local'].save_accounts()
     log.info(f"Setting up {env} environment.")
     ctx.obj['environment'] = env
-    local = LocalStorage(env)
-    aws = DynamoDB(env)
-    ctx.obj['local'] = local
-    ctx.obj['db'] = aws
-    Account_Legacy.set_up(aws, local)
 
 
 @main.command("show")
 @click.pass_context
 def show_context(ctx):
     log.info(ctx.obj)
-    ctx.obj['local'].save_accounts()
 
 @main.command("reset")
 @click.pass_context
 def reset_context(ctx):
-    log.debug("resetting context without saving")
+    log.debug("resetting context")
     ctx.obj.clear()
 
 @main.command("list")
-def list_accounts():
-    click.echo(Account_Legacy.list_strings())
+@click.pass_context
+def list_accounts(ctx):
+    if 'accounts' in ctx.obj:
+        lst = ctx.obj['accounts'].list()
+    else:
+        lst = AccountGroup().list()
+    click.echo(lst)
 
-@main.command("acc")
+"""@main.command("acc")
 #@click.option("--data", type=str, prompt="Enter email or userId", required=True)
 @click.argument("data", type=str, required=True)
 @click.pass_context
@@ -91,8 +88,28 @@ def acc(ctx, data):
         else:
             return
     ctx.obj['account'] = acc
-    log.info(f"Account selected: {repr(acc)}")
+    log.info(f"Account selected: {repr(acc)}")"""
 
+@main.command("acc")
+#@click.option("--data", type=str, prompt="Enter email or userId", required=True)
+@click.argument("data", type=str, required=True)
+@click.pass_context
+def acc(ctx, data):
+    acc = Account.get_local(data)
+    if acc:
+        log.debug(f"Account {data} was found locally")
+        ctx.obj['account'] = acc
+        return
+    click.echo("Should we check the database?")
+    if not confirm(): return
+    if is_usrId(data): acc = Account.from_userid(data)
+    elif data:=ensure_email(data): acc = Account.from_email(data)
+    else: log.error(f"cannot search in db with that sort of data {data}")
+    if acc:
+        log.debug(f"Account {data} was found in remote db")
+        ctx.obj['account'] = acc
+    else:
+        log.error(f"Account {data} was not found in remote db")
 
 @click.command("create")
 @click.option("-m", "--email", prompt=True, required=True)

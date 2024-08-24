@@ -92,15 +92,12 @@ class Account_Legacy(UserDict):
         if not isinstance(item, dict):
             log.critical(f"Account is not initialized with proper item: {item}")
             raise ValueError(f"Account is not initialized with proper item: {item}")
-        if not isinstance(cls.__saved_accounts.get(item["userId"], None), cls):
-            inst = super().__new__(cls)
-            inst.data = dec_to_int(item)
-            inst.data.setdefault("pulled", ts_now())
-            if "mobilePushData" in item:
-                inst.data["LastMobile"] = parse_pd(item)
-            cls.__local.accounts[item["userId"]] = inst.data
-            cls.__saved_accounts[item["userId"]] = inst
-        return cls.__saved_accounts[item["userId"]]
+        inst = super().__new__(cls)
+        inst.data = dec_to_int(item)
+        inst.data.setdefault("pulled", ts_now())
+        if "mobilePushData" in item:
+            inst.data["LastMobile"] = parse_pd(item)
+        return inst
 
     def __repr__(self):
         return f"{self.data["userId"]}_{self.data["email"]}"
@@ -147,6 +144,13 @@ class Account(UserDict):
         item = DynamoDB(env).get_user_account(data)
         return item
 
+    @classmethod
+    def get_local(cls, data):
+        AccountGroup().find(data)
+
+    def save_local(self):
+        AccountGroup().data.update({self.data['userId']: self})
+
     def __new__(cls, item):
         if not isinstance(item, dict):
             log.critical(f"Account is not initialized with proper item: {item}")
@@ -159,7 +163,7 @@ class Account(UserDict):
         return inst
 
     def __repr__(self):
-        return f"{self.data["userId"]}_{self.data["email"]}"
+        return f"{self.data["userId"]} {self.data["email"]}"
 
 
 class AccountGroup(UserDict):
@@ -236,6 +240,19 @@ class AccountGroup(UserDict):
     def compile_email_index(self):
         self.email_data = {acc['email']: acc for acc in self.data.values()}
 
+    def remove_item(self, item):
+        if item in self.data:
+            del self.data[item]
+
+    def add_item(self, acc):
+        if not isinstance(acc, Account):
+            log.debug("Argument needs conversion, attempting")
+            acc = Account(acc)
+        self.master.data[acc['userId']] = acc
+        if self is not self.master:
+            log.debug("this group is not a master group")
+            self.data['userId'] = acc
+
     @property
     def serializable_dict(cls):
         return {k: dec_to_int(v.data) for k, v in cls.master.data.items()}
@@ -247,3 +264,6 @@ class AccountGroup(UserDict):
     @staticmethod
     def query_with_usrid(data):
         pass
+
+    def list(self):
+        return "\n".join(map(repr, self.data.values()))

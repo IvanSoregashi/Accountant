@@ -59,36 +59,6 @@ def list_accounts(ctx):
     AccountGroup().save_accounts()
 
 
-"""@main.command("acc")
-#@click.option("--data", type=str, prompt="Enter email or userId", required=True)
-@click.argument("data", type=str, required=True)
-@click.pass_context
-def acc(ctx, data):
-    if is_usrId(data):
-        log.info(f"Searching by userId {data}")
-        if "environment" not in ctx.obj:
-            log.warning(f"Environment is not set, trying to set up")
-            if envron(data) == env_qa:
-                env_setup(ctx, env_qa)
-            else:
-                env_setup(ctx, env_dev)
-        acc = Account_Legacy.find_in_local(data)
-    else:
-        if "environment" not in ctx.obj:
-            log.error(f"Environment is not set up! Aborting operation.")
-            return
-        log.info(f"Searching by{"" if is_email(data) else " partial"} email {data}")
-        acc = Account_Legacy.find_in_local(data)
-    if not acc:
-        log.warning(f"Account ({data}) not found")
-        log.info("Load account from DynamoDB?")
-        if confirm():
-            acc = Account_Legacy.load_from_dynamo(data)
-        else:
-            return
-    ctx.obj['account'] = acc
-    log.info(f"Account selected: {repr(acc)}")"""
-
 @main.command("acc")
 #@click.option("--data", type=str, prompt="Enter email or userId", required=True)
 @click.argument("data", type=str, required=True)

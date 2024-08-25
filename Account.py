@@ -8,19 +8,16 @@ log = logging.getLogger("Account")
 class Account(UserDict):
     @classmethod
     def from_email(cls, data, env):
-        log.debug(f"Searching for {data} in the DynamoDB.")
-        if not is_email(data):
-            log.debug(f"{data} does not look like email to me, WTF? Let's see what I can do")
-            data = ensure_email(data)
-            if not data:
-                log.error("There was nothing I could do. Operation aborted.")
-                return
-        items = DynamoDB(env).query_user_account_by_email(data)
+        email = ensure_email(data)
+        if not email:
+            log.error(f"{data} is not email. Operation Aborted.")
+            return
+        log.debug(f"Searching for {email} in the DynamoDB.")
+        items = DynamoDB(env).query_user_account_by_email(email)
         if len(items) > 1:
             userIds = [x['userId'] for x in items]
             log.warning(f"More than one account found for {data}, taking the first from userIds: {userIds}")
         item = items[0]
-        # TODO should all of the above evaluations really be in this class???
         return cls(item)
 
     @classmethod

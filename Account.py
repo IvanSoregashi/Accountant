@@ -9,9 +9,7 @@ class Account(UserDict):
     @classmethod
     def from_email(cls, data, env):
         email = ensure_email(data)
-        if not email:
-            log.error(f"{data} is not email. Operation Aborted.")
-            return
+        if not email: raise ValueError(f"{data} is not email. Operation aborted.")
         log.debug(f"Searching for {email} in the DynamoDB.")
         items = DynamoDB(env).query_user_account_by_email(email)
         if len(items) > 1:
@@ -22,10 +20,8 @@ class Account(UserDict):
 
     @classmethod
     def from_userid(cls, data):
+        if not is_usrId(data): raise ValueError(f"{data} id not valid dev/qa userid. Operation aborted.")
         log.debug(f"Searching for {data} in the DynamoDB.")
-        if not is_usrId(data):
-            log.error(f"{data} id not valid dev/qa userid. Operation aborted.")
-            return
         env = envron(data)
         item = DynamoDB(env).get_user_account(data)
         return cls(item)

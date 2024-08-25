@@ -103,11 +103,15 @@ def unmigrate(ctx):
     if "account" not in ctx.obj:
         log.error("Account was not specified")
         return
+    log.info(f"Unmigrating account {repr(ctx.obj['account'])}. Be aware: corporate VPN connection is necessary.")
     if not ctx.obj['account'][ux_field]:
         log.error("Account had not been migrated")
         return
-    ctx.obj['account'].unmigrate()
+    resp = ctx.obj['account'].unmigrate()
+    (log.info if resp.ok else log.error)(f"Response: {str(resp.content)}")
 
 
 if __name__ == "__main__":
     main()
+
+

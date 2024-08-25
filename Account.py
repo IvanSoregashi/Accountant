@@ -1,3 +1,5 @@
+import requests
+
 from collections import UserDict
 from utils import *
 from DynamoDB import DynamoDB
@@ -49,6 +51,18 @@ class Account(UserDict):
 
     def unmigrate(self):
         log.debug("executing unmigrate action")
+        env = envron(self['userId'])
+        url = REQUEST[env]['unmigrate']['url'].format(self['userId'])
+        headers = REQUEST[env]['unmigrate']['headers']
+        payload = REQUEST[env]['unmigrate']['payload']
+        return requests.request("PUT", url, headers=headers, data=payload)
+
+    @classmethod
+    def register(cls, env, email, cc, lang, type):
+        url = REQUEST[env][f'create_{type}']['url']
+        headers = REQUEST[env][f'create_{type}']['headers']
+        payload = REQUEST[env][f'create_{type}']['payload'].format()
+        return requests.request("PUT", url, headers=headers, data=payload)
 
 
 class AccountGroup(UserDict):
@@ -138,8 +152,8 @@ class AccountGroup(UserDict):
             self.data['userId'] = acc
 
     @property
-    def serializable_dict(cls):
-        return {k: dec_to_int(v.data) for k, v in cls._master.data.items()}
+    def serializable_dict(self):
+        return {k: dec_to_int(v.data) for k, v in self._master.data.items()}
 
     def list_repr(self):
         return "\n".join(map(repr, self.data.values()))

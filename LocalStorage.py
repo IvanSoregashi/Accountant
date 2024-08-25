@@ -20,8 +20,6 @@ class LocalStorage:
             load_dotenv(f"config/.env.{env}", override=True)
 
             inst.accounts_path = os.getenv('JSON_ACCOUNTS')
-            # inst.devices_path = os.getenv('JSON_DEVICES')
-
             inst.accounts = inst.get_accounts()
             log.info(f"Loaded {inst.number_of_saved_accounts} accounts from disk")
             cls.INSTANCE[env] = inst

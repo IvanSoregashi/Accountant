@@ -117,7 +117,7 @@ class Account_Legacy(UserDict):
 
 class Account(UserDict):
     @classmethod
-    def from_email(cls, data, env=None):
+    def from_email(cls, data, env):
         log.debug(f"Searching for {data} in the DynamoDB.")
         if not is_email(data):
             log.debug(f"{data} does not look like email to me, WTF? Let's see what I can do")
@@ -125,7 +125,6 @@ class Account(UserDict):
             if not data:
                 log.error("There was nothing I could do. Operation aborted.")
                 return
-        if not env: env = confirm_env()
         items = DynamoDB(env).query_user_account_by_email(data)
         if len(items) > 1:
             userIds = [x['userId'] for x in items]
@@ -146,7 +145,7 @@ class Account(UserDict):
 
     @classmethod
     def get_local(cls, data):
-        AccountGroup().find(data)
+        return AccountGroup().find(data)
 
     def save_local(self):
         AccountGroup().data.update({self.data['userId']: self})
@@ -170,7 +169,7 @@ class Account(UserDict):
 
 
 class AccountGroup(UserDict):
-    _master: AccountGroup = AccountGroup()
+    _master = None
 
     @classmethod
     def get_accounts(cls):

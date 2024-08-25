@@ -4,10 +4,7 @@ import logging.config
 from click_shell import shell
 
 from utils import *
-
-from Account import Account_Legacy, AccountGroup, Account
-#from DynamoDB import DynamoDB
-#from LocalStorage import LocalStorage
+from Account import AccountGroup, Account
 
 __author__ = "Ivan Shiriaev"
 __maintainer__ = "Ivan Shiriaev"
@@ -105,7 +102,9 @@ def acc(ctx, data):
     click.echo("Should we check the database?")
     if not confirm(): return
     if is_usrId(data): acc = Account.from_userid(data)
-    elif data:=ensure_email(data): acc = Account.from_email(data)
+    elif email:=ensure_email(data):
+        env = ctx.obj.get('environment', confirm_env())
+        acc = Account.from_email(email, env)
     else: log.error(f"cannot search in db with that sort of data {data}")
     if acc:
         log.debug(f"Account {data} was found in remote db")
@@ -128,7 +127,7 @@ def create_account(ctx, email, ux, api, country, language):
     pass
 
 
-@click.command("unmigrate")
+@main.command("unmigrate")
 @click.pass_context
 def unmigrate(ctx):
     if "account" not in ctx.obj:

@@ -170,7 +170,7 @@ class Account(UserDict):
 
 
 class AccountGroup(UserDict):
-    _master = dict()
+    _master: AccountGroup = AccountGroup()
 
     @classmethod
     def get_accounts(cls):

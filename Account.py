@@ -132,7 +132,7 @@ class Account(UserDict):
             log.warning(f"More than one account found for {data}, taking the first from userIds: {userIds}")
         item = items[0]
         # TODO should all of the above evaluations really be in this class???
-        return item
+        return cls(item)
 
     @classmethod
     def from_userid(cls, data):
@@ -142,7 +142,7 @@ class Account(UserDict):
             return
         env = envron(data)
         item = DynamoDB(env).get_user_account(data)
-        return item
+        return cls(item)
 
     @classmethod
     def get_local(cls, data):
@@ -165,16 +165,18 @@ class Account(UserDict):
     def __repr__(self):
         return f"{self.data["userId"]} {self.data["email"]}"
 
+    def unmigrate(self):
+        log.debug("executing unmigrate action")
+
 
 class AccountGroup(UserDict):
-    master = None
+    _master = dict()
 
     @classmethod
     def get_accounts(cls):
         try:
             with open(accounts_json_file, "r", encoding="utf-8") as file:
-                log.debug("Collecting data from disk")
-                return json.load(file)
+                items = json.load(file)
         except OSError as e:
             log.error(f"Exception when trying to load a file '{accounts_json_file}'")
             log.exception(e)
@@ -183,33 +185,33 @@ class AccountGroup(UserDict):
             log.error(f"Exception when trying to read json '{accounts_json_file}'")
             log.exception(e)
             raise json.JSONDecodeError(f"Exception when trying to read json '{accounts_json_file}'")
+        log.debug(f"Loaded {len(items)} accounts from disk")
+        return items
 
     @classmethod
     def save_accounts(cls):
         try:
             with open(accounts_json_file, "w", encoding="utf-8") as file:
-                json.dump(cls.master.serializable_dict, file, indent=2)
-                log.info(f"Saved {len(cls.master)} accounts to disk")
+                json.dump(cls._master.serializable_dict, file, indent=2)
+                log.info(f"Saved {len(cls._master)} accounts to disk")
         except OSError as e:
             log.error(f"Exception when trying to save a file '{accounts_json_file}'")
             log.exception(e)
             raise OSError(f"Exception when trying to save a file '{accounts_json_file}'")
 
-    def __new__(cls, filter=None):
-        log.debug("Cooking a new Account Group")
-        if not cls.master:
-            log.debug("No master group found, creating new master group")
-            accounts = AccountGroup.get_accounts()
-            inst = super().__new__(cls)
-            inst.data = {k: Account(v) for k, v in accounts.items()}
-            inst.email_data = {acc['email']: acc for acc in inst.data.values()}
-            cls.master = inst
-        if not filter:
-            log.debug("Returning the Master Group")
-            return cls.master
-        else:
-            log.debug("Filters were not yet implemented")
-            return NotImplemented
+    def __new__(cls, *args, **kwargs):
+        if not args and not kwargs and cls._master:
+            log.debug("Returning the existing master group")
+            return cls._master
+        log.debug("Cooking up a new Account group")
+        return super().__new__(cls)
+
+    def __init__(self, dict=None, /, **kwargs):
+        if dict or kwargs: super().__init__(dict or kwargs)
+        elif not self.__class__._master:
+            self.data = {k: Account(v) for k, v in AccountGroup.get_accounts().items()}
+            self.email_data = {acc['email']: acc for acc in self.data.values()}
+            self.__class__._master = self
 
     def __missing__(self, key):
         log.debug(f"Key {key} was not found in UserID index")
@@ -248,22 +250,14 @@ class AccountGroup(UserDict):
         if not isinstance(acc, Account):
             log.debug("Argument needs conversion, attempting")
             acc = Account(acc)
-        self.master.data[acc['userId']] = acc
-        if self is not self.master:
+        self._master.data[acc['userId']] = acc
+        if self is not self._master:
             log.debug("this group is not a master group")
             self.data['userId'] = acc
 
     @property
     def serializable_dict(cls):
-        return {k: dec_to_int(v.data) for k, v in cls.master.data.items()}
+        return {k: dec_to_int(v.data) for k, v in cls._master.data.items()}
 
-    @staticmethod
-    def query_with_email(data):
-        pass
-
-    @staticmethod
-    def query_with_usrid(data):
-        pass
-
-    def list(self):
+    def list_repr(self):
         return "\n".join(map(repr, self.data.values()))

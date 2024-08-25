@@ -55,10 +55,12 @@ def reset_context(ctx):
 @click.pass_context
 def list_accounts(ctx):
     if 'accounts' in ctx.obj:
-        lst = ctx.obj['accounts'].list()
+        lst = ctx.obj['accounts'].list_repr()
     else:
-        lst = AccountGroup().list()
+        lst = AccountGroup().list_repr()
     click.echo(lst)
+    AccountGroup().save_accounts()
+
 
 """@main.command("acc")
 #@click.option("--data", type=str, prompt="Enter email or userId", required=True)
@@ -108,6 +110,10 @@ def acc(ctx, data):
     if acc:
         log.debug(f"Account {data} was found in remote db")
         ctx.obj['account'] = acc
+        click.echo("Save Account to disk?")
+        if confirm():
+            acc.save_local()
+            AccountGroup().save_accounts()
     else:
         log.error(f"Account {data} was not found in remote db")
 

@@ -28,6 +28,15 @@ class Account(UserDict):
         item = DynamoDB(env).get_user_account(data)
         return cls(item)
 
+    def refresh(self):
+        userId = self.data['userId']
+        env = envron(userId)
+        item = DynamoDB(env).get_user_account(userId)
+        self.data.update(item)
+        self.data["pulled"] = ts_now()
+        if "mobilePushData" in item:
+            self.data["LastMobile"] = parse_pd(item)
+
     @classmethod
     def get_local(cls, data):
         return AccountGroup().find(data)

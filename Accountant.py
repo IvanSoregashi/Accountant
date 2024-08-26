@@ -52,6 +52,21 @@ def reset_context(ctx):
     log.debug("resetting context")
     ctx.obj.clear()
 
+@main.command("remove")
+@click.pass_context
+def remove_account(ctx):
+    if 'account' in ctx.obj:
+        ctx.obj['account'].remove()
+    else:
+        log.error("Account was not specified")
+@main.command("update")
+@click.pass_context
+def update_account(ctx):
+    if 'account' in ctx.obj:
+        ctx.obj['account'].refresh()
+    else:
+        log.error("Account was not specified")
+
 @main.command("list")
 @click.pass_context
 def list_accounts(ctx):

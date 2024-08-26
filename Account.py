@@ -37,6 +37,10 @@ class Account(UserDict):
         if "mobilePushData" in item:
             self.data["LastMobile"] = parse_pd(item)
 
+    def remove(self):
+        userId = self.data['userId']
+        AccountGroup().remove_item(userId)
+
     @classmethod
     def get_local(cls, data):
         return AccountGroup().find(data)
@@ -147,9 +151,9 @@ class AccountGroup(UserDict):
     def compile_email_index(self):
         self.email_data = {acc['email']: acc for acc in self.data.values()}
 
-    def remove_item(self, item):
-        if item in self.data:
-            del self.data[item]
+    def remove_item(self, userId):
+        if userId in self.data:
+            del self.data[userId]
 
     def add_item(self, acc):
         if not isinstance(acc, Account):

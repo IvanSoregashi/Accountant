@@ -8,7 +8,7 @@ from Account import AccountGroup, Account
 
 __author__ = "Ivan Shiriaev"
 __maintainer__ = "Ivan Shiriaev"
-__version__ = 0.18
+__version__ = 0.22
 
 logging.config.fileConfig("config/log.conf")
 log = logging.getLogger("Accountant")
@@ -38,9 +38,13 @@ def env_setup(ctx, env):
 
 
 @main.command("show")
+@click.option("--hash", is_flag=True, help="Print out userId hash.")
 @click.pass_context
-def show_context(ctx):
+def show_context(ctx, hash):
     log.info(ctx.obj)
+    log.info(expand(ctx.obj['account'].data))
+
+    if hash: log.info(sha_256(ctx.obj['account']['userId']))
 
 @main.command("reset")
 @click.pass_context
@@ -103,7 +107,7 @@ def unmigrate(ctx):
     if "account" not in ctx.obj:
         log.error("Account was not specified")
         return
-    log.info(f"Unmigrating account {repr(ctx.obj['account'])}. Be aware: corporate VPN connection is necessary.")
+    log.info(f"Un-migrating account {repr(ctx.obj['account'])}. Be aware: corporate VPN connection is necessary.")
     if not ctx.obj['account'][ux_field]:
         log.error("Account had not been migrated")
         return

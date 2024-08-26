@@ -1,6 +1,7 @@
 import json
 import re
 import logging
+from hashlib import sha256
 
 from obscura import *
 from datetime import datetime as dt
@@ -84,3 +85,9 @@ def confirm_env():
         answer = input("Confirm the environment: (qa/dev) ")
         if answer == "qa": return env_qa
         if answer == "dev": return env_dev
+
+def sha_256(data):
+    data = data.encode()
+    sha256_hash = sha256(data).hexdigest()
+    return sha256_hash
+

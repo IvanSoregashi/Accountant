@@ -11,7 +11,6 @@ log = logging.getLogger("DynamoDB")
 
 
 class DynamoDB:
-    QUERIES = 0
     INSTANCE = {}
 
     def __new__(cls, env):
@@ -29,71 +28,54 @@ class DynamoDB:
                 region_name=os.getenv('REGION_NAME')
             )
 
-            inst.Device = inst.__dynamo_db_resource.Table("Device")
-            inst.UserAccount = inst.__dynamo_db_resource.Table("UserAccount")
-            inst.UserDevices = inst.__dynamo_db_resource.Table("UserDevices")
+            #inst.Device = inst.__dynamo_db_resource.Table("Device")
+            #inst.UAccount = inst.__dynamo_db_resource.Table("UserAccount")
+            #inst.UDevices = inst.__dynamo_db_resource.Table("UserDevices")
+            #inst.DEligibility = inst.__dynamo_db_resource.Table("DeviceEligibility")
 
             cls.INSTANCE[env] = inst
         return cls.INSTANCE[env]
 
     def get_item(self, table_name, **kwargs):
         log.debug(f"AWS({self.env}).get_item called on table {table_name} with kwargs {kwargs}")
-        self.__class__.QUERIES += 1
         table = self.__dynamo_db_resource.Table(table_name)
         item = table.get_item(Key=kwargs)
         item = item.get("Item", {})
+        if not item:
+            log.error(f"Nothing was found in AWS({self.env}) table {table_name} with query {kwargs}")
         return item
 
     def query(self, table_name, key, value):
         log.debug(f"AWS({self.env}).query called on table {table_name} with {key}={value}")
-        self.__class__.QUERIES += 1
         table = self.__dynamo_db_resource.Table(table_name)
         items = table.query(KeyConditionExpression=Key(key).eq(value))
         items = items.get("Items", [])
+        if not items:
+            log.error(f"Nothing was found in AWS({self.env}) table {table_name} with pair {key}:{value}")
         return items
 
     def query_devices(self, parentid):
-        self.__class__.QUERIES += 1
-        items = self.Device.query(KeyConditionExpression=Key(parent_field).eq(parentid))
-        items = items.get("Items", [])
-        return items
+        return self.query("Device", parent_field, parentid)
 
     def query_user_devices(self, userid):
-        self.__class__.QUERIES += 1
-        items = self.UserDevices.query(KeyConditionExpression=Key("userId").eq(userid))
-        items = items.get("Items", [])
-        return items
+        return self.query("UserDevices", "userId", userid)
 
     def get_device(self, parentid, deviceid=None):
-        self.__class__.QUERIES += 1
-        key = {parent_field: parentid, device_field: deviceid if deviceid else parentid}
-        item = self.Device.get_item(Key=key)
-        item = item.get("Item", {})
-        return item
+        deviceid = deviceid if deviceid else parentid
+        return self.get_item("Device", parent_field=parentid, device_field=deviceid)
 
     def get_user_device(self, userid, deviceid):
-        self.__class__.QUERIES += 1
-        key = {"userId": userid, "deviceid": deviceid}
-        item = self.UserDevices.get_item(Key=key)
-        item = item.get("Item", {})
-        return item
+        return self.get_item("UserDevices", userId=userid, deviceid=deviceid)
 
     def get_user_account(self, userid):
-        self.__class__.QUERIES += 1
-        key = {"userId": userid}
-        item = self.UserAccount.get_item(Key=key)
-        item = item.get("Item", {})
-        if not item:
-            log.error(f"Account with userId: {userid} was not found in AWS({self.env})")
-        return dec_to_int(item)
+        return self.get_item("UserAccount", userId=userid)
 
     def query_user_account_by_email(self, email):
-        self.__class__.QUERIES += 1
-        items = self.UserAccount.query(IndexName="email-index", KeyConditionExpression=Key("email").eq(email))
+        t = self.__dynamo_db_resource.Table("UserAccount")
+        items = t.query(IndexName="email-index", KeyConditionExpression=Key("email").eq(email))
         items = items.get("Items", {})
         if not items:
             log.error(f"Account with email: {email} was not found in AWS({self.env})")
             return
         #item = items[0]
-        # TODO evaluate the need for dec_to_int here
-        return dec_to_int(items)
+        return items

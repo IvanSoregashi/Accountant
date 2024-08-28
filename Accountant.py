@@ -38,19 +38,21 @@ def env_setup(ctx, env):
 
 
 @main.command("show")
-@click.option("--hash", is_flag=True, help="Print out userId hash.")
+@click.option("-s", "--hash", is_flag=True, help="Print out hashed userId (for the LaunchDarkly).")
+@click.option("-f", "--full", is_flag=True, help="Print out Full account json.")
 @click.pass_context
-def show_context(ctx, hash):
+def show_context(ctx, hash, full):
     log.info(ctx.obj)
-    log.info(expand(ctx.obj['account'].data))
-
+    if full: click.echo(expand(ctx.obj['account'].data))
     if hash: log.info(sha_256(ctx.obj['account']['userId']))
+
 
 @main.command("reset")
 @click.pass_context
 def reset_context(ctx):
     log.debug("resetting context")
     ctx.obj.clear()
+
 
 @main.command("remove")
 @click.pass_context
@@ -59,6 +61,8 @@ def remove_account(ctx):
         ctx.obj['account'].remove()
     else:
         log.error("Account was not specified")
+
+
 @main.command("update")
 @click.pass_context
 def update_account(ctx):
@@ -66,6 +70,7 @@ def update_account(ctx):
         ctx.obj['account'].refresh()
     else:
         log.error("Account was not specified")
+
 
 @main.command("list")
 @click.pass_context
@@ -90,11 +95,13 @@ def acc(ctx, data):
         return
     click.echo("Should we check the database?")
     if not confirm(): return
-    if is_usrId(data): acc = Account.from_userid(data)
-    elif email:=ensure_email(data):
+    if is_usrId(data):
+        acc = Account.from_userid(data)
+    elif email := ensure_email(data):
         env = ctx.obj.get('environment', confirm_env())
         acc = Account.from_email(email, env)
-    else: log.error(f"cannot search in db with that sort of data {data}")
+    else:
+        log.error(f"cannot search in db with that sort of data {data}")
     if acc:
         log.debug(f"Account {data} was found in remote db")
         ctx.obj['account'] = acc
@@ -104,6 +111,8 @@ def acc(ctx, data):
             AccountGroup().save_accounts()
     else:
         log.error(f"Account {data} was not found in remote db")
+
+
 
 @click.command("create")
 @click.option("-m", "--email", prompt=True, required=True)
@@ -132,5 +141,3 @@ def unmigrate(ctx):
 
 if __name__ == "__main__":
     main()
-
-

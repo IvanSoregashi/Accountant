@@ -28,11 +28,6 @@ class DynamoDB:
                 region_name=os.getenv('REGION_NAME')
             )
 
-            #inst.Device = inst.__dynamo_db_resource.Table("Device")
-            #inst.UAccount = inst.__dynamo_db_resource.Table("UserAccount")
-            #inst.UDevices = inst.__dynamo_db_resource.Table("UserDevices")
-            #inst.DEligibility = inst.__dynamo_db_resource.Table("DeviceEligibility")
-
             cls.INSTANCE[env] = inst
         return cls.INSTANCE[env]
 
@@ -54,24 +49,29 @@ class DynamoDB:
             log.error(f"Nothing was found in AWS({self.env}) table {table_name} with pair {key}:{value}")
         return items
 
+    def put(self, table_name, item):
+        log.debug(f"AWS({self.env}).put called on table {table_name} with {item}")
+        table = self.__dynamo_db_resource.Table(table_name)
+        table.put_item(Item=item)
+
     def query_devices(self, parentid):
-        return self.query("Device", parent_field, parentid)
+        return self.query(DV, parent_field, parentid)
 
     def query_user_devices(self, userid):
-        return self.query("UserDevices", "userId", userid)
+        return self.query(UD, "userId", userid)
 
     def get_device(self, parentid, deviceid=None):
         deviceid = deviceid if deviceid else parentid
-        return self.get_item("Device", parent_field=parentid, device_field=deviceid)
+        return self.get_item(DV, parent_field=parentid, device_field=deviceid)
 
     def get_user_device(self, userid, deviceid):
-        return self.get_item("UserDevices", userId=userid, deviceid=deviceid)
+        return self.get_item(UD, userId=userid, deviceid=deviceid)
 
     def get_user_account(self, userid):
-        return self.get_item("UserAccount", userId=userid)
+        return self.get_item(UA, userId=userid)
 
     def query_user_account_by_email(self, email):
-        t = self.__dynamo_db_resource.Table("UserAccount")
+        t = self.__dynamo_db_resource.Table(UA)
         items = t.query(IndexName="email-index", KeyConditionExpression=Key("email").eq(email))
         items = items.get("Items", {})
         if not items:
@@ -79,3 +79,9 @@ class DynamoDB:
             return
         #item = items[0]
         return items
+
+    def get_device_eligibility(self, deviceid):
+        return self.get_item(DE, **{device_field: deviceid})
+
+    def put_device_eligibility(self, item):
+        return self.put(DE, item)

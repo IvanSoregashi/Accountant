@@ -4,7 +4,6 @@ import os
 
 from dotenv import load_dotenv
 from boto3.dynamodb.conditions import Key
-from utils import dec_to_int, expand
 from obscura import *
 
 log = logging.getLogger("DynamoDB")
@@ -77,7 +76,6 @@ class DynamoDB:
         if not items:
             log.error(f"Account with email: {email} was not found in AWS({self.env})")
             return
-        #item = items[0]
         return items
 
     def get_device_eligibility(self, deviceid):

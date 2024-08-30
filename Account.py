@@ -170,3 +170,14 @@ class AccountGroup(UserDict):
 
     def list_repr(self):
         return "\n".join(map(repr, self.data.values()))
+
+    def filter(self, check):
+        check = check.lower()
+        dct = {k: v for k, v in self.data.items() if FILTERS[check](k, v)}
+        return AccountGroup(dct)
+
+    def filter_by_cc(self, cc):
+        cc = list(map(str.upper, cc))
+        dct = {k: v for k, v in self.data.items() if v["countryCode"] in cc}
+        return AccountGroup(dct)
+

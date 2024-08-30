@@ -42,9 +42,13 @@ def env_setup(ctx, env):
 @click.option("-f", "--full", is_flag=True, help="Print out Full account json.")
 @click.pass_context
 def show_context(ctx, hash, full):
-    log.info(ctx.obj)
+    # log.info(ctx.obj)
+    if 'account' not in ctx.obj:
+        log.error("not found")
+        return
+    click.echo(ctx.obj['account'])
     if full: click.echo(expand(ctx.obj['account'].data))
-    if hash: log.info(sha_256(ctx.obj['account']['userId']))
+    if hash: click.echo(sha_256(ctx.obj['account']['userId']))
 
 
 @main.command("reset")
@@ -73,14 +77,40 @@ def update_account(ctx):
 
 
 @main.command("list")
+@click.argument("filter", nargs=-1)
 @click.pass_context
-def list_accounts(ctx):
-    if 'accounts' in ctx.obj:
-        lst = ctx.obj['accounts'].list_repr()
-    else:
-        lst = AccountGroup().list_repr()
-    click.echo(lst)
-    AccountGroup().save_accounts()
+def list_accounts(ctx, filter):
+    if 'accounts' not in ctx.obj:
+        ctx.obj['accounts'] = AccountGroup()
+    click.echo(ctx.obj['accounts'].list_repr())
+
+
+@main.command("f1")
+@click.argument("args", required=True, nargs=-1, type=str)
+@click.pass_context
+def filter_list_argument(ctx, args):
+    log.debug(str(args))
+    if 'accounts' not in ctx.obj:
+        ctx.obj['accounts'] = AccountGroup()
+    cc, flt = sort_args(args)
+    ctx.obj['accounts'] = ctx.obj['accounts'].filter_by_cc(cc)
+    for arg in flt:
+        ctx.obj['accounts'] = ctx.obj['accounts'].filter(arg)
+
+@main.command("f2")
+@click.option("-c", required=False, type=click.Choice(COUNTRY_IP))
+@click.option("-r", required=False, type=click.Choice(REGION))
+@click.option("-f", multiple=True, type=click.Choice(FILTERS))
+#@click.option("-r", "--region", prompt=True)
+@click.pass_context
+def filter_list_options(ctx, c, r, f):
+    if 'accounts' not in ctx.obj:
+        ctx.obj['accounts'] = AccountGroup()
+    #ctx.obj['accounts'] = ctx.obj['accounts'].filter(env_dev)
+    print(c)
+    print(r)
+    print(f)
+    #print(region)
 
 
 @main.command("acc")

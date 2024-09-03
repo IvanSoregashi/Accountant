@@ -100,7 +100,7 @@ def filter_list_argument(ctx, args):
 @main.command("f2")
 @click.option("-c", required=False, type=click.Choice(COUNTRY_IP))
 @click.option("-r", required=False, type=click.Choice(REGION))
-@click.option("-f", multiple=True, type=click.Choice(FILTERS))
+@click.option("-f", required=False, type=click.Choice(FILTERS))
 #@click.option("-r", "--region", prompt=True)
 @click.pass_context
 def filter_list_options(ctx, c, r, f):

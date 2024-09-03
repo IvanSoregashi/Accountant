@@ -103,7 +103,9 @@ def sort_args(args):
     cc = list(set(cc))
     return cc, flt
 
+
 # Dicts
+
 
 REGION = {
     "Z1": ["CA", "GB", "DE", "FR", "IT", "ES", "PT", "NL", "BE", "SE", "NO", "DK", "FI", "AT", "CH", "LV", "LT", "IE", "HR", "SK", "SI", "CZ", "PL", "EE", "RO", "HU", "LU", "GR", "CY", "MT", "BG", ],
@@ -167,6 +169,8 @@ COUNTRY_IP = {
 }
 
 FILTERS = {
+    "3": lambda k, v: not v[sml],
+    "4": lambda k, v: v[sml],
     "qa": lambda k, v: envron(k) == env_qa,
     "dev": lambda k, v: envron(k) == env_dev,
     company1: lambda k, v: "partnerId" not in v,

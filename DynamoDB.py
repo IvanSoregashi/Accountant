@@ -83,3 +83,12 @@ class DynamoDB:
 
     def put_device_eligibility(self, item):
         return self.put(DE, item)
+
+    def query_engagements(self, userId):
+        return self.query(UE, "userId", userId)
+
+    def get_engagement(self, userId, fn):
+        return self.get_item(UE, **{"userId": userId, "featureName": fn})
+
+    def put_engagement(self, item):
+        return self.put(UE, item)

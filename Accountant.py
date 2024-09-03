@@ -35,6 +35,7 @@ def dev(ctx): env_setup(ctx, env_dev)
 def env_setup(ctx, env):
     log.info(f"Setting up {env} environment.")
     ctx.obj['environment'] = env
+    ctx.obj['accounts'] = AccountGroup().filter(env[6:])
 
 
 @main.command("show")
@@ -47,7 +48,7 @@ def show_context(ctx, hash, full):
         log.error("not found")
         return
     click.echo(ctx.obj['account'])
-    if full: click.echo(expand(ctx.obj['account'].data))
+    if full: click.echo(expand(dec_to_int(ctx.obj['account'].data)))
     if hash: click.echo(sha_256(ctx.obj['account']['userId']))
 
 
@@ -85,7 +86,7 @@ def list_accounts(ctx, filter):
     click.echo(ctx.obj['accounts'].list_repr())
 
 
-@main.command("f1")
+@main.command("flt")
 @click.argument("args", required=True, nargs=-1, type=str)
 @click.pass_context
 def filter_list_argument(ctx, args):
@@ -93,11 +94,12 @@ def filter_list_argument(ctx, args):
     if 'accounts' not in ctx.obj:
         ctx.obj['accounts'] = AccountGroup()
     cc, flt = sort_args(args)
-    ctx.obj['accounts'] = ctx.obj['accounts'].filter_by_cc(cc)
+    if cc:
+        ctx.obj['accounts'] = ctx.obj['accounts'].filter_by_cc(cc)
     for arg in flt:
         ctx.obj['accounts'] = ctx.obj['accounts'].filter(arg)
 
-@main.command("f2")
+@main.command("f")
 @click.option("-c", required=False, type=click.Choice(COUNTRY_IP))
 @click.option("-r", required=False, type=click.Choice(REGION))
 @click.option("-f", required=False, type=click.Choice(FILTERS))
@@ -129,6 +131,7 @@ def acc(ctx, data):
         acc = Account.from_userid(data)
     elif email := ensure_email(data):
         env = ctx.obj.get('environment', confirm_env())
+        env_setup(ctx, env)
         acc = Account.from_email(email, env)
     else:
         log.error(f"cannot search in db with that sort of data {data}")
@@ -143,16 +146,34 @@ def acc(ctx, data):
         log.error(f"Account {data} was not found in remote db")
 
 
-
-@click.command("create")
-@click.option("-m", "--email", prompt=True, required=True)
-@click.option("-u", "--ux", prompt=True, required=True)
-@click.option("-a", "--api", required=False)
-@click.option("-c", "--country", prompt=True, required=True, default="US")
-@click.option("-l", "--language", prompt=True, required=True, default="en-us")
+@main.command("eng")
 @click.pass_context
-def create_account(ctx, email, ux, api, country, language):
-    pass
+def get_engagements(ctx):
+    if 'account' not in ctx.obj:
+        log.warning("Account was not specified")
+        return
+    items = ctx.obj['account'].get_engagements()
+    click.echo(expand(dec_to_int(items)))
+
+
+@main.command("peng")
+@click.pass_context
+def get_engagements(ctx):
+    ctx.obj['account'].refresh_engagements()
+
+
+@main.command("create")
+@click.option("-m", "--email", prompt=True, required=True)
+@click.option("-c", "--country", default="US")
+@click.option("-l", "--language", default="en")
+@click.option("-t", "--type", required=True)
+@click.pass_context
+def create_account(ctx, email, country, language, type):
+    env = ctx.obj.get('environment', confirm_env())
+    match type:
+        case '3': Account.create_3(env, ensure_email(email), country, language)
+        case '4i': Account.create_4i(env, ensure_email(email), country, language)
+        case '4a': pass
 
 
 @main.command("unmigrate")
@@ -167,6 +188,11 @@ def unmigrate(ctx):
         return
     resp = ctx.obj['account'].unmigrate()
     (log.info if resp.ok else log.error)(f"Response: {str(resp.content)}")
+
+
+@main.command("exp")
+def experiment():
+    pass
 
 
 if __name__ == "__main__":

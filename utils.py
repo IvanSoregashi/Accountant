@@ -1,11 +1,13 @@
-import json
+import os
 import re
+import json
 import logging
-from hashlib import sha256
-
-from obscura import *
 from datetime import datetime as dt
+from enum import Enum
+from dotenv import load_dotenv
+from hashlib import sha256
 from decimal import Decimal
+from obscura import *
 
 log = logging.getLogger("utils")
 
@@ -13,15 +15,6 @@ expand = lambda x: json.dumps(x, indent=2)
 ts_now = lambda: dt.now().timestamp()
 pntodt = lambda x: dt.strptime(x, "%Y%d%m_%H%M")
 int_dt = lambda x: {k: (int(v) if isinstance(v, Decimal) else v) for k, v in x.items()}
-
-
-def envron(data):
-    if re.fullmatch(qa_user_regex, data, flags=re.I):
-        return env_qa
-    elif re.fullmatch(dev_user_regex, data, flags=re.I):
-        return env_dev
-    else:
-        log.error("UserId doesn't match dev or qa pattern")
 
 
 def ts_to_days(ts):
@@ -62,8 +55,7 @@ def ensure_email(string: str) -> str:
 
 
 def is_usrId(string: str) -> bool:
-    regex_userid = user_regex
-    return bool(re.fullmatch(regex_userid, string, flags=re.I))
+    return bool(re.fullmatch(r"\w+-\d\d\d-\d+", string, flags=re.I))
 
 
 def parse_pd(acc):
@@ -81,13 +73,6 @@ def confirm():
         if answer in ("no", "No", "NO"): return False
 
 
-def confirm_env():
-    while True:
-        answer = input("Confirm the environment: (qa/dev) ")
-        if answer == "qa": return env_qa
-        if answer == "dev": return env_dev
-
-
 def sha_256(data):
     data = data.encode()
     sha256_hash = sha256(data).hexdigest()
@@ -103,6 +88,57 @@ def sort_args(args):
     cc = list(set(cc))
     return cc, flt
 
+
+
+class ENV(Enum):
+    DEV = env_dev
+    QA = env_qa
+    PROD = env_prod
+
+    def SET(self):
+        if self.value == os.environ.get("ENVIRONMENT", None):
+            return
+        log.info(f"Setting up the {self.value} environment")
+        env_file = f"config/.env.{self.value}"
+        load_dotenv(env_file, override=True)
+        return self
+
+    @classmethod
+    @property
+    def GET(cls):
+        env = os.environ.get("ENVIRONMENT", None)
+        if not env:
+            raise EnvironmentError("Environment was not set")
+        return env
+
+    @classmethod
+    def IS_NOT_SET(cls):
+        return "ENVIRONMENT" not in os.environ
+
+    @classmethod
+    def IS_PROD(cls):
+        return os.environ.get("ENVIRONMENT") == env_prod
+
+    @classmethod
+    def GET_FROM_USERID(cls, userId):
+        if re.fullmatch(r"DEV-\d\d\d-\d+", userId, flags=re.I):
+            return cls.DEV
+        if re.fullmatch(r"QA-\d\d\d-\d+", userId, flags=re.I):
+            return cls.QA
+        if re.fullmatch(r"\w+-\d\d\d-\d+", userId, flags=re.I):
+            return cls.PROD
+        raise RuntimeError(f"Cannot parse environment from userId {userId}")
+
+    @classmethod
+    def CHOOSE(cls):
+        while True:
+            answer = input("Choose the environment: (qa/dev) > ")
+            if answer == "qa":
+                return cls.DEV
+            if answer == "dev":
+                return cls.QA
+            if answer == "prod":
+                return cls.PROD
 
 # Dicts
 
@@ -171,12 +207,12 @@ COUNTRY_IP = {
 FILTERS = {
     "3": lambda k, v: not v[sml],
     "4": lambda k, v: v[sml],
-    "qa": lambda k, v: envron(k) == env_qa,
-    "dev": lambda k, v: envron(k) == env_dev,
-    company1: lambda k, v: "partnerId" not in v,
+    "qa": lambda k, v: ENV.GET_FROM_USERID(k) == ENV.QA,
+    "dev": lambda k, v: ENV.GET_FROM_USERID(k) == ENV.DEV,
+    COMPANY.A: lambda k, v: "partnerId" not in v,
     "partner": lambda k, v: "partnerId" in v,
-    company2: lambda k, v: v["partnerId"] == company2,
-    company3: lambda k, v: v["partnerId"].startswith(company3),
+    COMPANY.C: lambda k, v: v["partnerId"] == COMPANY.C,
+    COMPANY.V: lambda k, v: v["partnerId"].startswith(COMPANY.V),
 }
 
 LANGUAGE_CODES = [

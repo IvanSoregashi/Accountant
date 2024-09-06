@@ -1,10 +1,6 @@
-import logging
 import boto3
-import os
-
-from dotenv import load_dotenv
 from boto3.dynamodb.conditions import Key
-from obscura import *
+from utils import *
 
 log = logging.getLogger("DynamoDB")
 
@@ -12,14 +8,25 @@ log = logging.getLogger("DynamoDB")
 class DynamoDB:
     INSTANCE = {}
 
-    def __new__(cls, env):
+    def __getattribute__(self, item):
+        if ENV.IS_NOT_SET():
+            raise EnvironmentError("Environment is not set")
+        if ENV.IS_PROD():
+            raise EnvironmentError("Cannot operate with production database")
+        return super().__getattribute__(item)
+
+    def __new__(cls):
+        if ENV.IS_NOT_SET():
+            raise EnvironmentError("Environment is not set")
+        if ENV.IS_PROD():
+            raise EnvironmentError("Cannot operate with production database")
+
+        env = ENV.GET
+
         if not isinstance(cls.INSTANCE.get(env), cls):
             inst = super().__new__(cls)
 
-            inst.env = env
             log.info(f"Instantiating the AWS({env}) object")
-            load_dotenv(f"config/.env.{env}", override=True)
-
             inst.__dynamo_db_resource = boto3.resource(
                 service_name='dynamodb',
                 aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
@@ -30,28 +37,42 @@ class DynamoDB:
             cls.INSTANCE[env] = inst
         return cls.INSTANCE[env]
 
-    def get_item(self, table_name, **kwargs):
-        log.debug(f"AWS({self.env}).get_item called on table {table_name} with kwargs {kwargs}")
-        table = self.__dynamo_db_resource.Table(table_name)
+    @classmethod
+    def get_item(cls, table_name, **kwargs):
+        log.debug(f"AWS({ENV.GET}).get_item called on table {table_name} with kwargs {kwargs}")
+        table = cls().__dynamo_db_resource.Table(table_name)
         item = table.get_item(Key=kwargs)
         item = item.get("Item", {})
         if not item:
-            log.error(f"Nothing was found in AWS({self.env}) table {table_name} with query {kwargs}")
+            log.error(f"Nothing  -{item}-  was found in AWS({ENV.GET}) table {table_name} with query {kwargs}")
         return item
 
-    def query(self, table_name, key, value):
-        log.debug(f"AWS({self.env}).query called on table {table_name} with {key}={value}")
-        table = self.__dynamo_db_resource.Table(table_name)
+    @classmethod
+    def query(cls, table_name, key, value):
+        log.debug(f"AWS({ENV.GET}).query called on table {table_name} with {key}={value}")
+        table = cls().__dynamo_db_resource.Table(table_name)
         items = table.query(KeyConditionExpression=Key(key).eq(value))
         items = items.get("Items", [])
         if not items:
-            log.error(f"Nothing was found in AWS({self.env}) table {table_name} with pair {key}:{value}")
+            log.error(f"Nothing -{items}- was found in AWS({ENV.GET}) table {table_name} with pair {key}:{value}")
         return items
 
-    def put(self, table_name, item):
-        log.debug(f"AWS({self.env}).put called on table {table_name} with {item}")
-        table = self.__dynamo_db_resource.Table(table_name)
+    @classmethod
+    def put(cls, table_name, item):
+        log.debug(f"AWS({ENV.GET}).put called on table {table_name} with {item}")
+        table = cls().__dynamo_db_resource.Table(table_name)
         table.put_item(Item=item)
+
+    @classmethod
+    def query_user_account_by_email(cls, email):
+        log.debug(f"AWS({ENV.GET}).query called on table {UA} with email={email}")
+        table = cls().__dynamo_db_resource.Table(UA)
+        items = table.query(IndexName="email-index", KeyConditionExpression=Key("email").eq(email))
+        items = items.get("Items", {})
+        if not items:
+            log.error(f"Account with email: {email} was not found in AWS({ENV.GET})")
+            return
+        return items
 
     def query_devices(self, parentid):
         return self.query(DV, parent_field, parentid)
@@ -68,15 +89,6 @@ class DynamoDB:
 
     def get_user_account(self, userid):
         return self.get_item(UA, userId=userid)
-
-    def query_user_account_by_email(self, email):
-        t = self.__dynamo_db_resource.Table(UA)
-        items = t.query(IndexName="email-index", KeyConditionExpression=Key("email").eq(email))
-        items = items.get("Items", {})
-        if not items:
-            log.error(f"Account with email: {email} was not found in AWS({self.env})")
-            return
-        return items
 
     def get_device_eligibility(self, deviceid):
         return self.get_item(DE, **{device_field: deviceid})

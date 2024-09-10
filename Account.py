@@ -9,11 +9,12 @@ log = logging.getLogger("Account")
 
 class Account(UserDict):
     @classmethod
-    def from_email(cls, data, env):
+    def from_email(cls, data):
         email = ensure_email(data)
-        if not email: raise ValueError(f"{data} is not email. Operation aborted.")
-        log.debug(f"Searching for {email} in the DynamoDB.")
-        items = DynamoDB(env).query_user_account_by_email(email)
+        if not email:
+            raise ValueError(f"{data} is not email. Operation aborted.")
+        log.debug(f"Searching for {email} in the DynamoDB({ENV.GET}).")
+        items = DynamoDB.query_user_account_by_email(email)
         if len(items) > 1:
             userIds = [x['userId'] for x in items]
             log.warning(f"More than one account found for {data}, taking the first from userIds: {userIds}")
@@ -22,16 +23,17 @@ class Account(UserDict):
 
     @classmethod
     def from_userid(cls, data):
-        if not is_usrId(data): raise ValueError(f"{data} id not valid dev/qa userid. Operation aborted.")
+        if not is_usrId(data):
+            raise ValueError(f"{data} is not valid userid. Operation aborted.")
         log.debug(f"Searching for {data} in the DynamoDB.")
-        env = envron(data)
-        item = DynamoDB(env).get_user_account(data)
+        ENV.GET_FROM_USERID(data).SET()
+        item = DynamoDB.get_item(UA, userId=data)
         return cls(item)
 
     def refresh(self):
         userId = self.data['userId']
-        env = envron(userId)
-        item = DynamoDB(env).get_user_account(userId)
+        ENV.GET_FROM_USERID(userId).SET()
+        item = DynamoDB.get_item(UA, userId=userId)
         self.data.update(item)
         self.data["pulled"] = ts_now()
         if "mobilePushData" in item:
@@ -48,6 +50,39 @@ class Account(UserDict):
     def save_local(self):
         AccountGroup().data.update({self.data['userId']: self})
 
+    '''def get_engagements(self):
+        """temporary func, in progress"""
+        userId = self.data['userId']
+        ENV.GET_FROM_USERID(userId).SET()
+        #items = DynamoDB(env).query_engagements(userId)
+        e1 = DynamoDB().get_engagement(userId, "smartNotifications")
+        e2 = DynamoDB().get_engagement(userId, "firstTimeDetailAlertsPopup")
+        e3 = DynamoDB().get_engagement(userId, "firstTimeFocusedAlertsPopup")
+        items = [e1, e2, e3]
+        return items
+
+    def refresh_engagements(self):
+        """temporary func, in progress"""
+        userId = self.data['userId']
+
+        def make_dict(fn):
+            return {"userYetToEngage": 1, "dateEngaged": 0, "userId": userId, "featureName": fn}
+
+        def refresh(e):
+            e["userYetToEngage"] = 1
+            e["dateEngaged"] = 0
+            print(DynamoDB().put_engagement(e))
+
+        e1 = DynamoDB().get_engagement(userId, "smartNotifications")
+        if e1: refresh(e1)
+        else: DynamoDB().put_engagement(make_dict("smartNotifications"))
+        e2 = DynamoDB().get_engagement(userId, "firstTimeDetailAlertsPopup")
+        if e2: refresh(e2)
+        else: DynamoDB().put_engagement(make_dict("firstTimeDetailAlertsPopup"))
+        e3 = DynamoDB().get_engagement(userId, "firstTimeFocusedAlertsPopup")
+        if e3: refresh(e3)
+        else: DynamoDB().put_engagement(make_dict("firstTimeFocusedAlertsPopup"))'''
+
     def __new__(cls, item):
         if not isinstance(item, dict):
             log.critical(f"Account is not initialized with proper item: {item}")
@@ -62,20 +97,6 @@ class Account(UserDict):
     def __repr__(self):
         return f"{self.data["userId"]} {self.data["email"]}"
 
-    def unmigrate(self):
-        log.debug("executing unmigrate action")
-        env = envron(self['userId'])
-        url = REQUEST[env]['unmigrate']['url'].format(self['userId'])
-        headers = REQUEST[env]['unmigrate']['headers']
-        payload = REQUEST[env]['unmigrate']['payload']
-        return requests.request("PUT", url, headers=headers, data=payload)
-
-    @classmethod
-    def register(cls, env, email, cc, lang, type):
-        url = REQUEST[env][f'create_{type}']['url']
-        headers = REQUEST[env][f'create_{type}']['headers']
-        payload = REQUEST[env][f'create_{type}']['payload'].format()
-        return requests.request("PUT", url, headers=headers, data=payload)
 
 
 class AccountGroup(UserDict):
@@ -84,29 +105,29 @@ class AccountGroup(UserDict):
     @classmethod
     def get_accounts(cls):
         try:
-            with open(accounts_json_file, "r", encoding="utf-8") as file:
+            with open(r"data/Accounts.json", "r", encoding="utf-8") as file:
                 items = json.load(file)
         except OSError as e:
-            log.error(f"Exception when trying to load a file '{accounts_json_file}'")
+            log.error(f"Exception when trying to load a file")
             log.exception(e)
-            raise OSError(f"Exception when trying to load a file '{accounts_json_file}'")
+            raise OSError(f"Exception when trying to load a file")
         except json.JSONDecodeError as e:
-            log.error(f"Exception when trying to read json '{accounts_json_file}'")
+            log.error(f"Exception when trying to read json")
             log.exception(e)
-            raise json.JSONDecodeError(f"Exception when trying to read json '{accounts_json_file}'")
+            raise json.JSONDecodeError(f"Exception when trying to read json")
         log.debug(f"Loaded {len(items)} accounts from disk")
         return items
 
     @classmethod
     def save_accounts(cls):
         try:
-            with open(accounts_json_file, "w", encoding="utf-8") as file:
+            with open(r"data/Accounts.json", "w", encoding="utf-8") as file:
                 json.dump(cls._master.serializable_dict, file, indent=2)
                 log.info(f"Saved {len(cls._master)} accounts to disk")
         except OSError as e:
-            log.error(f"Exception when trying to save a file '{accounts_json_file}'")
+            log.error(f"Exception when trying to save a file")
             log.exception(e)
-            raise OSError(f"Exception when trying to save a file '{accounts_json_file}'")
+            raise OSError(f"Exception when trying to save a file")
 
     def __new__(cls, *args, **kwargs):
         if not args and not kwargs and cls._master:

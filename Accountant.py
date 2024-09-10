@@ -2,13 +2,12 @@ import click
 import logging.config
 
 from click_shell import shell
-
 from utils import *
 from Account import AccountGroup, Account
 
 __author__ = "Ivan Shiriaev"
 __maintainer__ = "Ivan Shiriaev"
-__version__ = 0.22
+__version__ = 0.30
 
 logging.config.fileConfig("config/log.conf")
 log = logging.getLogger("Accountant")
@@ -20,22 +19,57 @@ log = logging.getLogger("Accountant")
 def main(ctx):
     ctx.obj = {}
     log.info(f"We are starting here!")
+    ctx.call_on_close(lambda: print("exiting the app"))
 
 
 @main.command("qa")
-@click.pass_context
-def qa(ctx): env_setup(ctx, env_qa)
+def qa():
+    ENV.QA.SET()
 
 
 @main.command("dev")
+def dev():
+    ENV.DEV.SET()
+
+
+@main.command("prod")
+def prod():
+    ENV.PROD.SET()
+
+
+@main.command("acc")
+#@click.option("--data", type=str, prompt="Enter email or userId", required=True)
+@click.argument("data", type=str, required=True)
 @click.pass_context
-def dev(ctx): env_setup(ctx, env_dev)
-
-
-def env_setup(ctx, env):
-    log.info(f"Setting up {env} environment.")
-    ctx.obj['environment'] = env
-    ctx.obj['accounts'] = AccountGroup().filter(env[6:])
+def acc(ctx, data):
+    # Local Search
+    acc = Account.get_local(data)
+    if acc:
+        log.debug(f"Account {data} was found locally")
+        ctx.obj['account'] = acc
+        return
+    # Confirming search in remote DB
+    click.echo("Should we check the database?")
+    if not confirm(): return
+    # Search in remote DB by the data type
+    if is_usrId(data):
+        acc = Account.from_userid(data)
+    elif email := ensure_email(data):
+        acc = Account.from_email(email)
+    else:
+        log.error(f"cannot search in db with that sort of data {data}")
+        return
+    # account
+    if acc:
+        print(acc)
+        log.debug(f"Account {data} was found in remote db")
+        ctx.obj['account'] = acc
+        click.echo("Save Account to disk?")
+        if confirm():
+            acc.save_local()
+            AccountGroup().save_accounts()
+    else:
+        log.error(f"Account {data} was not found in remote db")
 
 
 @main.command("show")
@@ -43,7 +77,6 @@ def env_setup(ctx, env):
 @click.option("-f", "--full", is_flag=True, help="Print out Full account json.")
 @click.pass_context
 def show_context(ctx, hash, full):
-    # log.info(ctx.obj)
     if 'account' not in ctx.obj:
         log.error("not found")
         return
@@ -99,7 +132,7 @@ def filter_list_argument(ctx, args):
     for arg in flt:
         ctx.obj['accounts'] = ctx.obj['accounts'].filter(arg)
 
-@main.command("f")
+'''@main.command("f")
 @click.option("-c", required=False, type=click.Choice(COUNTRY_IP))
 @click.option("-r", required=False, type=click.Choice(REGION))
 @click.option("-f", required=False, type=click.Choice(FILTERS))
@@ -112,41 +145,11 @@ def filter_list_options(ctx, c, r, f):
     print(c)
     print(r)
     print(f)
-    #print(region)
+    #print(region)'''
 
 
-@main.command("acc")
-#@click.option("--data", type=str, prompt="Enter email or userId", required=True)
-@click.argument("data", type=str, required=True)
-@click.pass_context
-def acc(ctx, data):
-    acc = Account.get_local(data)
-    if acc:
-        log.debug(f"Account {data} was found locally")
-        ctx.obj['account'] = acc
-        return
-    click.echo("Should we check the database?")
-    if not confirm(): return
-    if is_usrId(data):
-        acc = Account.from_userid(data)
-    elif email := ensure_email(data):
-        env = ctx.obj.get('environment', confirm_env())
-        env_setup(ctx, env)
-        acc = Account.from_email(email, env)
-    else:
-        log.error(f"cannot search in db with that sort of data {data}")
-    if acc:
-        log.debug(f"Account {data} was found in remote db")
-        ctx.obj['account'] = acc
-        click.echo("Save Account to disk?")
-        if confirm():
-            acc.save_local()
-            AccountGroup().save_accounts()
-    else:
-        log.error(f"Account {data} was not found in remote db")
 
-
-@main.command("eng")
+'''@main.command("eng")
 @click.pass_context
 def get_engagements(ctx):
     if 'account' not in ctx.obj:
@@ -159,10 +162,10 @@ def get_engagements(ctx):
 @main.command("peng")
 @click.pass_context
 def get_engagements(ctx):
-    ctx.obj['account'].refresh_engagements()
+    ctx.obj['account'].refresh_engagements()'''
 
 
-@main.command("create")
+'''@main.command("create")
 @click.option("-m", "--email", prompt=True, required=True)
 @click.option("-c", "--country", default="US")
 @click.option("-l", "--language", default="en")
@@ -173,10 +176,10 @@ def create_account(ctx, email, country, language, type):
     match type:
         case '3': Account.create_3(env, ensure_email(email), country, language)
         case '4i': Account.create_4i(env, ensure_email(email), country, language)
-        case '4a': pass
+        case '4a': pass'''
 
 
-@main.command("unmigrate")
+'''@main.command("unmigrate")
 @click.pass_context
 def unmigrate(ctx):
     if "account" not in ctx.obj:
@@ -187,7 +190,7 @@ def unmigrate(ctx):
         log.error("Account had not been migrated")
         return
     resp = ctx.obj['account'].unmigrate()
-    (log.info if resp.ok else log.error)(f"Response: {str(resp.content)}")
+    (log.info if resp.ok else log.error)(f"Response: {str(resp.content)}")'''
 
 
 @main.command("exp")
@@ -197,3 +200,4 @@ def experiment():
 
 if __name__ == "__main__":
     main()
+

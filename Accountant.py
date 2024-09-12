@@ -46,12 +46,14 @@ def prod():
 @main.command("acc")
 # @click.option("--data", type=str, prompt="Enter email or userId", required=True)
 @click.argument("data", type=str, required=True)
-# , help="Information to search account by, can be either email or userId")
 @click.pass_context
 def acc(ctx, data):
-    """Select account to work with.
+    """\b
+    Select account to work with.
     First we will try to find it locally,
-    Then in DynamoDB if not found"""
+    Then in DynamoDB if not found
+
+    DATA - Information to search account by, can be userId or email address"""
     # Local Search
     acc = Account.get_local(data)
     if acc:
@@ -89,19 +91,21 @@ def acc(ctx, data):
 def show_context(ctx, hash, full):
     """Show information about the account"""
     if 'account' not in ctx.obj:
-        log.error("Account was not selected yet")
+        log.error("Account was not specified, select the account first.")
         return
     click.echo(ctx.obj['account'])
-    if full: click.echo(expand(dec_to_int(ctx.obj['account'].data)))
-    if hash: click.echo(sha_256(ctx.obj['account']['userId']))
+    if full:
+        click.echo(expand(dec_to_int(ctx.obj['account'].data)))
+    if hash:
+        click.echo(sha_256(ctx.obj['account']['userId']))
 
 
 @main.command("reset")
 @click.pass_context
 def reset_context(ctx):
     """Clear out the context, like selected account or list of accounts"""
-    log.debug("resetting context")
     ctx.obj.clear()
+    log.debug("The context was reset.")
 
 
 @main.command("remove")
@@ -111,7 +115,7 @@ def remove_account(ctx):
     if 'account' in ctx.obj:
         ctx.obj['account'].remove()
     else:
-        log.error("Account was not specified")
+        log.error("Account was not specified, select the account first.")
 
 
 @main.command("update")
@@ -125,10 +129,11 @@ def update_account(ctx):
 
 
 @main.command("list")
-@click.argument("filter", nargs=-1)# , help="this flag is useless for now")
+# @click.argument("filter", nargs=-1)
 @click.pass_context
-def list_accounts(ctx, filter):
-    """List the accounts,
+def list_accounts(ctx):
+    """\b
+    List the accounts,
     narrow down the list by using 'filter' command"""
     if 'accounts' not in ctx.obj:
         ctx.obj['accounts'] = AccountGroup()
@@ -136,18 +141,22 @@ def list_accounts(ctx, filter):
 
 
 @main.command("filter")
-@click.argument("args", required=True, nargs=-1, type=str)# , help="list the filters")
+@click.argument("args", required=True, nargs=-1, type=str)
 @click.pass_context
 def filter_list_argument(ctx, args):
-    f"""Filter the list of the accounts
-    view the list of your accounts with 'list' command
-    Filter by country code {tuple(COUNTRY_IP)}
-    Filter by geographical zone {tuple(REGION)}
-    Filter by environment dev, qa, etc
-    Filter by partner company
-    Filter by last update (not yet)
-    Filter by Devices (not yet)
-    Filter by provisioned devices (not yet)
+    """\b
+    Filter the list of the accounts.
+    Provide arguments one by one after the filter command.
+    Example: 'filter z1 partner qa'
+    Filter by country code: US, FR, etc.
+    Filter by geographical zone: EU, Z1, LATAM.
+    Filter by environment dev, qa, etc.
+    Filter by partner company.
+    Filter by last update (not yet).
+    Filter by Devices (not yet).
+    Filter by provisioned devices (not yet).
+
+    View the list of your accounts with 'list' command.
     """
     log.debug(str(args))
     if 'accounts' not in ctx.obj:
@@ -224,12 +233,13 @@ def create_legacy_account(ctx, email, country, language):
 @click.option("-m", "--email", prompt=True, type=str, required=True, help="email address of the account")
 @click.option("-c", "--country", prompt=True, type=str, default="US", help="Country Code of the account")
 @click.option("-l", "--language", type=str, default="en", help="language assigned to the account")
-@click.option("-v", "--verify", is_flag=True, help="auto-confirm the email address?")
+@click.option("-v", "--verify", is_flag=True, help="auto-verify email address")
 @click.option("-a", "--mfa", is_flag=True, help="Disable mfa? works only on dev environment right now")
 @click.option("-o", "--location", type=str, default="Home", help="Create default location")
 @click.pass_context
 def create_directory_account(ctx, email, country, language, verify, mfa, location):
-    """Register new account via directory API with custom country and language,
+    """\b
+    Register new account via directory API with custom country and language,
     auto verify email, disable mfa (dev), create default location with the use of flags.
     Corporate VPN is necessary for use of Directory API."""
     userId = directory_register(

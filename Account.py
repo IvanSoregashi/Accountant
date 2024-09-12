@@ -28,7 +28,7 @@ class Account(UserDict):
         log.debug(f"Searching for {data} in the DynamoDB.")
         ENV.GET_FROM_USERID(data).SET()
         item = DynamoDB.get_item(UA, userId=data)
-        return cls(item)
+        return cls(item) if item else item
 
     def refresh(self):
         userId = self.data['userId']

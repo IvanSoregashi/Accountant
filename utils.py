@@ -206,12 +206,15 @@ COUNTRY_IP = {
 FILTERS = {
     "3": lambda k, v: not v[sml],
     "4": lambda k, v: v[sml],
-    "qa": lambda k, v: ENV.GET_FROM_USERID(k) == ENV.QA,
-    "dev": lambda k, v: ENV.GET_FROM_USERID(k) == ENV.DEV,
+    "qa": lambda k, v: ENV.GET_FROM_USERID(k) is ENV.QA,
+    "dev": lambda k, v: ENV.GET_FROM_USERID(k) is ENV.DEV,
     COMPANY.A: lambda k, v: "partnerId" not in v,
     "partner": lambda k, v: "partnerId" in v,
-    COMPANY.C: lambda k, v: v["partnerId"] == COMPANY.C,
-    COMPANY.V: lambda k, v: v["partnerId"].startswith(COMPANY.V),
+    COMPANY.C: lambda k, v: "partnerId" in v and v["partnerId"] == COMPANY.C,
+    COMPANY.V: lambda k, v: "partnerId" in v and v["partnerId"].startswith(COMPANY.V),
+    "freshest": lambda k, v: ts_to_days(v["lastModified"]) < 30,
+    "fresh": lambda k, v: ts_to_days(v["lastModified"]) < 180,
+    "old": lambda k, v: ts_to_days(v["lastModified"]) > 180,
 }
 
 LANGUAGE_CODES = [

@@ -3,7 +3,7 @@ import logging.config
 
 from click_shell import shell
 
-from Requests import register_ux3, directory_register
+from Requests import register_ux3, directory_register, disable_mfa
 from utils import *
 from Account import AccountGroup, Account
 
@@ -120,10 +120,11 @@ def remove_account(ctx):
 @click.pass_context
 def update_account(ctx):
     """Refresh the account data from the database"""
-    if 'account' in ctx.obj:
-        ctx.obj['account'].refresh()
-    else:
+    if "account" not in ctx.obj:
         log.error("Account was not specified")
+        return
+
+    ctx.obj['account'].refresh()
 
 
 @main.command("list")
@@ -135,6 +136,7 @@ def list_accounts(ctx):
     narrow down the list by using 'filter' command"""
     if 'accounts' not in ctx.obj:
         ctx.obj['accounts'] = AccountGroup()
+
     click.echo(ctx.obj['accounts'].list_repr())
 
 
@@ -223,6 +225,9 @@ def create_account(ctx, email, country, language, type):
 @click.pass_context
 def create_legacy_account(ctx, email, country, language):
     """Register legacy account with custom country and language"""
+    if ENV.IS_NOT_SET():
+        ENV.CHOOSE().SET()
+
     userId = register_ux3(ensure_email(email), country.upper(), language.lower())
     acc = Account.from_userid(userId)
     ctx.obj['account'] = acc
@@ -233,20 +238,23 @@ def create_legacy_account(ctx, email, country, language):
 @click.option("-m", "--email", prompt=True, type=str, required=True, help="email address of the account")
 @click.option("-c", "--country", prompt=True, type=str, default="US", help="Country Code of the account")
 @click.option("-l", "--language", type=str, default="en", help="language assigned to the account")
-@click.option("-v", "--verify", is_flag=True, help="auto-verify email address")
+#@click.option("-v", "--verify", is_flag=True, help="auto-verify email address")
 @click.option("-a", "--mfa", is_flag=True, help="Disable mfa? works only on dev environment right now")
 @click.option("-o", "--location", type=str, default="Home", help="Create default location")
 @click.pass_context
-def create_directory_account(ctx, email, country, language, verify, mfa, location):
+def create_directory_account(ctx, email, country, language, mfa, location):  # verify, mfa, location):
     """\b
     Register new account via directory API with custom country and language,
     auto verify email, disable mfa (dev), create default location with the use of flags.
     Corporate VPN is necessary for use of Directory API."""
+    if ENV.IS_NOT_SET():
+        ENV.CHOOSE().SET()
+
     userId = directory_register(
         ensure_email(email),
         country.upper(),
         language.lower(),
-        verify,
+        #verify,
         mfa,
         location)
     acc = Account.from_userid(userId)
@@ -261,12 +269,11 @@ def unmigrate(ctx):
     if "account" not in ctx.obj:
         log.error("Account was not specified")
         return
-    log.info(f"Un-migrating account {repr(ctx.obj['account'])}.")
     if not ctx.obj['account'][ux_field]:
         log.error("Account had not been migrated")
         return
-    resp = ctx.obj['account'].unmigrate()
-    (log.info if resp.ok else log.error)(f"Response: {str(resp.content)}")
+    log.info(f"Un-migrating account {repr(ctx.obj['account'])}.")
+    ctx.obj['account'].unmigrate()
 
 
 @main.command("er")
@@ -282,14 +289,17 @@ def er_action(ctx, action):
 
 
 @main.command("mfa")
-@click.pass_context
-def er_action(ctx,):
+@click.option("-t", "--token", type=str, prompt="Please input authorized token", required=True, help="Token is necessary.")
+def disable_mfa(token):
     """disable mfa on the account"""
-    if "account" not in ctx.obj:
-        log.error("Account was not specified")
-        return
-    log.info(f"Disabling mfa on account {repr(ctx.obj['account'])}.")
-    ctx.obj['account'].disable_mfa()
+    if ENV.IS_NOT_SET():
+        ENV.CHOOSE().SET()
+
+    if ENV.IS_PROD():
+        log.error("Cannot disable mfa on production.")
+        raise EnvironmentError
+
+    disable_mfa(token)
 
 
 @main.command("exp")

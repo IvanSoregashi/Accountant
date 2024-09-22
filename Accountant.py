@@ -47,39 +47,37 @@ def prod():
 # @click.option("--data", type=str, prompt="Enter email or userId", required=True)
 @click.argument("data", type=str, required=True)
 @click.pass_context
-def acc(ctx, data):
+def account(ctx, data):
     """\b
     Select account to work with.
     First we will try to find it locally,
     Then in DynamoDB if not found
 
     DATA - Information to search account by, can be userId or email address"""
-    # Local Search
-    acc = Account.get_local(data)
+    if 'accounts' not in ctx.obj:
+        ctx.obj['accounts'] = AccountGroup()
+
+    acc = ctx.obj["accounts"].find(data)
+
     if acc:
         log.debug(f"Account {data} was found locally")
         ctx.obj['account'] = acc
+        ENV.GET_FROM_USERID(acc['userId']).SET()
         return
-    # Confirming search in remote DB, commented out for now, doing automatically
-    # click.echo("Should we check the database?")
-    # if not confirm(): return
-    # Search in remote DB by the data type
+
     if is_usrId(data):
         acc = Account.from_userid(data)
     elif email := ensure_email(data):
         acc = Account.from_email(email)
     else:
-        log.error(f"cannot search in db with that sort of data {data}")
+        log.error(f"Cannot search in db with that sort of data {data}")
         return
-    # account
+
     if acc:
         log.debug(f"Account {data} was found in remote db")
         ctx.obj['account'] = acc
-        """click.echo("Save Account to disk?")
-        if confirm():"""
-        # lets save account automatically for now
-        acc.save_local()
-        AccountGroup().save_accounts()
+        ENV.GET_FROM_USERID(acc['userId']).SET()
+        acc.save_to_local_storage()
     else:
         log.error(f"Account {data} was not found in remote db")
 
@@ -201,10 +199,13 @@ def get_engagements(ctx):
 
 
 '''@main.command("create")
-@click.option("-m", "--email", prompt=True, required=True)
-@click.option("-c", "--country", default="US")
-@click.option("-l", "--language", default="en")
-@click.option("-t", "--type", required=True)
+@click.option("-t", "--type", prompt=True, type=click.Choice(["3", "4"]), required=True, help="type of the account to create")
+@click.option("-m", "--email", prompt=True, type=str, required=True, help="email address of the account")
+@click.option("-c", "--country", prompt=True, type=str, default="US", help="Country Code of the account")
+@click.option("-l", "--language", type=str, default="en", help="language assigned to the account")
+@click.option("-v", "--verify", is_flag=True, help="auto-verify email address")
+@click.option("-a", "--mfa", is_flag=True, help="Disable mfa? works only on dev environment right now")
+@click.option("-o", "--location", type=str, default="Home", help="Create default location")
 @click.pass_context
 def create_account(ctx, email, country, language, type):
     if ENV.IS_NOT_SET():
@@ -225,8 +226,7 @@ def create_legacy_account(ctx, email, country, language):
     userId = register_ux3(ensure_email(email), country.upper(), language.lower())
     acc = Account.from_userid(userId)
     ctx.obj['account'] = acc
-    acc.save_local()
-    AccountGroup().save_accounts()
+    acc.save_to_local_storage()
 
 
 @main.command("reg4")
@@ -251,8 +251,7 @@ def create_directory_account(ctx, email, country, language, verify, mfa, locatio
         location)
     acc = Account.from_userid(userId)
     ctx.obj['account'] = acc
-    acc.save_local()
-    AccountGroup().save_accounts()
+    acc.save_to_local_storage()
 
 
 @main.command("unmigrate")
@@ -262,12 +261,35 @@ def unmigrate(ctx):
     if "account" not in ctx.obj:
         log.error("Account was not specified")
         return
-    log.info(f"Un-migrating account {repr(ctx.obj['account'])}. Be aware: corporate VPN connection is necessary.")
+    log.info(f"Un-migrating account {repr(ctx.obj['account'])}.")
     if not ctx.obj['account'][ux_field]:
         log.error("Account had not been migrated")
         return
     resp = ctx.obj['account'].unmigrate()
     (log.info if resp.ok else log.error)(f"Response: {str(resp.content)}")
+
+
+@main.command("er")
+@click.option("-a", "--action", type=click.Choice(["close", "contact", "cancel"]), prompt=True, required=True, help="action to be performed on er")
+@click.pass_context
+def er_action(ctx, action):
+    """Execute action on the ongoing er call"""
+    if "account" not in ctx.obj:
+        log.error("Account was not specified")
+        return
+    log.info(f"Executing '{action}' on er call from account {repr(ctx.obj['account'])}.")
+    ctx.obj['account'].er(action)
+
+
+@main.command("mfa")
+@click.pass_context
+def er_action(ctx,):
+    """disable mfa on the account"""
+    if "account" not in ctx.obj:
+        log.error("Account was not specified")
+        return
+    log.info(f"Disabling mfa on account {repr(ctx.obj['account'])}.")
+    ctx.obj['account'].disable_mfa()
 
 
 @main.command("exp")

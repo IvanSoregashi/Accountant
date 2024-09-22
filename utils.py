@@ -133,9 +133,9 @@ class ENV(Enum):
         while True:
             answer = input("Choose the environment: (qa/dev) > ")
             if answer == "qa":
-                return cls.DEV
-            if answer == "dev":
                 return cls.QA
+            if answer == "dev":
+                return cls.DEV
             if answer == "prod":
                 return cls.PROD
 

@@ -1,5 +1,4 @@
-import requests
-
+from Requests import er_action, disable_mfa
 from collections import UserDict
 from utils import *
 from DynamoDB import DynamoDB
@@ -47,8 +46,26 @@ class Account(UserDict):
     def get_local(cls, data):
         return AccountGroup().find(data)
 
-    def save_local(self):
+    def save_to_local_storage(self):
         AccountGroup().data.update({self.data['userId']: self})
+        AccountGroup().save_accounts()
+
+    def er(self, action):
+        userId = self.data['userId']
+        log.debug(f"Executing {action} action on alarm for {self.data['email']} account")
+        ENV.GET_FROM_USERID(userId).SET()
+        items = DynamoDB().query(AEA, "ownerId", userId)
+        if not items:
+            log.warning("No alarm was called for this account")
+            return
+        externalAlarmId = items[0].get('externalAlarmId', {})
+
+        er_action(nl_action[action], externalAlarmId)
+
+    def disable_mfa(self):
+        disable_mfa(self.data.get("email"))
+
+
 
     '''def get_engagements(self):
         """temporary func, in progress"""
@@ -137,40 +154,36 @@ class AccountGroup(UserDict):
         return super().__new__(cls)
 
     def __init__(self, dict=None, /, **kwargs):
-        if dict or kwargs: super().__init__(dict or kwargs)
+        if dict or kwargs:
+            super().__init__(dict or kwargs)
+            self.data = dict
         elif not self.__class__._master:
             self.data = {k: Account(v) for k, v in AccountGroup.get_accounts().items()}
-            self.email_data = {acc['email']: acc for acc in self.data.values()}
             self.__class__._master = self
 
     def __missing__(self, key):
         log.debug(f"Key {key} was not found in UserID index")
         if is_email(key):
             log.debug(f"Checking email-index for {key}")
-            return self.email_data[key]
+            return self.find_acc_by_word_in_email(key)
         else:
             raise KeyError("Not Found")
 
     def find(self, data):
         log.debug(f"Searching for {data} locally.")
-        acc = None
         if is_usrId(data):
-            data_type = "UserId"
             acc = self.data.get(data, None)
-        elif is_email(data):
-            data_type = "email"
-            acc = self.email_data.get(data, None)
         else:
-            data_type = "partial email"
-            for item in self.email_data:
-                if data in item:
-                    acc = self.email_data.get(item, None)
-                    break
-        if not acc: log.warning(f"Nothing was found locally with {data_type} {data}.")
+            acc = self.find_acc_by_word_in_email(data)
+        if not acc: log.warning(f"Nothing was found locally with {data}.")
         return acc
 
-    def compile_email_index(self):
-        self.email_data = {acc['email']: acc for acc in self.data.values()}
+    def find_acc_by_word_in_email(self, data):
+        for acc in self.data.values():
+            if data in acc['email']:
+                log.debug(f"Account {acc} found")
+                return acc
+        log.warning(f"No account fount using full email {data}")
 
     def remove_item(self, userId):
         if userId in self.data:

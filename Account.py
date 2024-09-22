@@ -1,4 +1,4 @@
-from Requests import er_action, disable_mfa
+import Requests
 from collections import UserDict
 from utils import *
 from DynamoDB import DynamoDB
@@ -60,12 +60,14 @@ class Account(UserDict):
             return
         externalAlarmId = items[0].get('externalAlarmId', {})
 
-        er_action(nl_action[action], externalAlarmId)
+        Requests.er_action(nl_action[action], externalAlarmId)
 
-    def disable_mfa(self):
-        disable_mfa(self.data.get("email"))
+    @property
+    def ux(self):
+        return "UX4" if self.data.get(ux_field) else "UX3"
 
-
+    def unmigrate(self):
+        Requests.unmigrate(self.data.get("userId"))
 
     '''def get_engagements(self):
         """temporary func, in progress"""
@@ -112,8 +114,7 @@ class Account(UserDict):
         return inst
 
     def __repr__(self):
-        return f"{self.data["userId"]} {self.data["email"]}"
-
+        return f"{self.data["countryCode"]} {self.ux} {self.data["userId"]} {self.data["email"]}"
 
 
 class AccountGroup(UserDict):
